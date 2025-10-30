@@ -1,10 +1,16 @@
 -- ui_lib.lua
 -- Lightweight UI helpers & section/card builders for Level Hub style
--- return table `UI` so user can require()
+-- Export table UI for require() / loadstring() use
 
-local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
+local Players      = game:GetService("Players")
+local UIS          = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+
+----------------------------------------------------------------
+-- ICON CONFIG (ใช้เหมือนตัวหลัก)
+----------------------------------------------------------------
+local ICON_ARROW_RIGHT  = "rbxassetid://118483902647846"
+local ICON_ARROW_DOWN   = "rbxassetid://74976956154520"
 
 ----------------------------------------------------------------
 -- Smart parentGui detect
@@ -135,7 +141,7 @@ end
 
 ----------------------------------------------------------------
 -- Slider component
---  value range display (0..20), but also gives alpha 0..1
+-- Display value 0..20 and also returns alpha 0..1
 ----------------------------------------------------------------
 local function MakeSlider(parent, startAlpha, onChange)
     local a = math.clamp(startAlpha or 0.5,0,1)
@@ -222,7 +228,7 @@ local function MakeSlider(parent, startAlpha, onChange)
 end
 
 ----------------------------------------------------------------
--- Standalone header text (big title before a card group)
+-- Standalone header (big text before card block)
 ----------------------------------------------------------------
 local function AddStandaloneHeader(parent, titleText)
     local Header = New("Frame", {
@@ -249,8 +255,7 @@ local function AddStandaloneHeader(parent, titleText)
 end
 
 ----------------------------------------------------------------
--- CreateSectionCard
--- returns API with AddToggleRow / AddSliderRow
+-- Card builder
 ----------------------------------------------------------------
 local function CreateSectionCard(parent, rowsOutTable)
     local Card = New("Frame", {
@@ -362,11 +367,11 @@ local function CreateSectionCard(parent, rowsOutTable)
             ZIndex = 6,
         })
 
-        table.insert(rowsOutTable,{
+        table.insert(rowsOutTable, {
             RowFrame = Row,
-            Title = TitleLbl,
-            Desc  = DescLbl,
-            Toggle = toggleObj, -- you can read state later .Get()
+            Title    = TitleLbl,
+            Desc     = DescLbl,
+            Toggle   = toggleObj,
         })
 
         return toggleObj
@@ -422,7 +427,7 @@ local function CreateSectionCard(parent, rowsOutTable)
             ZIndex = 7,
         })
 
-        local sliderObj = MakeSlider(RightSide, defaultAlpha or 0.5, function(value,alpha)
+        local sliderObj = MakeSlider(RightSide, defaultAlpha or 0.5, function(value, alpha)
             TitleLbl.Text = (baseTitle or "Slider") .. " ( "..tostring(value).." )"
             if onChange then
                 onChange(value, alpha)
@@ -438,11 +443,11 @@ local function CreateSectionCard(parent, rowsOutTable)
             ZIndex = 6,
         })
 
-        table.insert(rowsOutTable,{
+        table.insert(rowsOutTable, {
             RowFrame = Row,
-            Title = TitleLbl,
-            Desc  = DescLbl,
-            Slider = sliderObj,
+            Title    = TitleLbl,
+            Desc     = DescLbl,
+            Slider   = sliderObj,
         })
 
         return sliderObj
@@ -452,8 +457,7 @@ local function CreateSectionCard(parent, rowsOutTable)
 end
 
 ----------------------------------------------------------------
--- CreatePage
--- returns {Frame=ScrollingFrame, Rows={}} and auto layout
+-- Page builder
 ----------------------------------------------------------------
 local function CreatePage(parent, name, isVisibleDefault)
     local Page = New("ScrollingFrame", {
@@ -492,10 +496,11 @@ local function CreatePage(parent, name, isVisibleDefault)
 end
 
 ----------------------------------------------------------------
--- Sidebar group / sidebar item helpers (no full sidebar logic, only builders)
+-- Sidebar group / item builder
+-- เราจะ handle active style (ปุ่มชมพู) ในนี้เลย
 ----------------------------------------------------------------
 local function CreateSidebarGroup(parent, groupName)
-    -- returns {Holder, ItemsHolder, RecalcHeight(), SetExpanded(bool), AddItem(cfg)}
+    -- returns {GroupHeader, ItemsHolder, AddItem, TweenExpanded, SetExpandedInstant, RecalcHeight}
 
     local Holder = Instance.new("Frame")
     Holder.Name = groupName .. "_Group"
@@ -518,7 +523,7 @@ local function CreateSidebarGroup(parent, groupName)
     ArrowImg.BackgroundTransparency = 1
     ArrowImg.Size = UDim2.new(0,14,0,14)
     ArrowImg.Position = UDim2.new(1,-18,0,3)
-    ArrowImg.Image = "rbxassetid://74976956154520" -- default ▼
+    ArrowImg.Image = ICON_ARROW_DOWN
     ArrowImg.ImageColor3 = Color3.fromRGB(160,160,170)
     ArrowImg.ZIndex = 6
 
@@ -534,6 +539,7 @@ local function CreateSidebarGroup(parent, groupName)
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.ZIndex = 6
 
+    -- ItemsHolder แยกเป็นอีก Frame ถัดลงมา (layout ใน parent เดียวกับ Holder)
     local ItemsHolder = Instance.new("Frame")
     ItemsHolder.Parent = parent
     ItemsHolder.BackgroundTransparency = 1
@@ -546,6 +552,9 @@ local function CreateSidebarGroup(parent, groupName)
     ItemsList.Padding = UDim.new(0,2)
     ItemsList.SortOrder = Enum.SortOrder.LayoutOrder
 
+    ----------------------------------------------------------------
+    -- expand / collapse logic
+    ----------------------------------------------------------------
     local collapsed = true
     local expandedHeight = 0
     local tweening = false
@@ -564,8 +573,9 @@ local function CreateSidebarGroup(parent, groupName)
         expandedHeight = total
     end
 
-    local function setExpandedState(open)
+    local function setExpandedInstant(open)
         collapsed = not open
+        recalcHeight()
         if open then
             ItemsHolder.Size = UDim2.new(1,0,0,expandedHeight)
             ArrowImg.Rotation = 0
@@ -575,7 +585,7 @@ local function CreateSidebarGroup(parent, groupName)
         end
     end
 
-    local function tweenExpand(open)
+    local function tweenExpanded(open)
         if tweening then return end
         tweening = true
         recalcHeight()
@@ -602,18 +612,53 @@ local function CreateSidebarGroup(parent, groupName)
     end
 
     HeaderBtn.MouseButton1Click:Connect(function()
-        tweenExpand(collapsed) -- toggle
+        tweenExpanded(collapsed) -- toggle
     end)
 
+    ----------------------------------------------------------------
+    -- active state mgmt for sidebar items
+    ----------------------------------------------------------------
+    local currentActiveBtn = nil
+
+    local function applyActive(btn, info, isActive)
+        -- info.TitleLabel, info.SubLabel, info.Icon
+        if isActive then
+            btn.BackgroundColor3      = Color3.fromRGB(255,0,80)
+            btn.BackgroundTransparency = 0
+            if info.SubLabel then
+                info.SubLabel.TextColor3 = Color3.fromRGB(255,255,255)
+            end
+            if info.Icon then
+                info.Icon.ImageColor3 = Color3.fromRGB(255,255,255)
+            end
+        else
+            btn.BackgroundColor3      = Color3.fromRGB(45,45,50)
+            btn.BackgroundTransparency = 1
+            if info.SubLabel then
+                info.SubLabel.TextColor3 = Color3.fromRGB(160,160,170)
+            end
+            if info.Icon then
+                info.Icon.ImageColor3 = Color3.fromRGB(255,0,80)
+            end
+        end
+    end
+
     local function AddItem(cfg)
-        -- cfg.name, cfg.sub, cfg.icon, cfg.onClick(tabName)
+        -- cfg.name
+        -- cfg.sub
+        -- cfg.icon
+        -- cfg.iconSize
+        -- cfg.iconMarginLeft
+        -- cfg.onClick(tabName)
+
         local tabName = cfg.name or "Tab"
 
         local ICON_SIZE        = cfg.iconSize or 18
         local ICON_LEFT_MARGIN = cfg.iconMarginLeft or 10
         local TEXT_GAP         = 8
-        local textStartX       = ICON_LEFT_MARGIN + ICON_SIZE + TEXT_GAP
         local BTN_HEIGHT       = 40
+
+        local textStartX = ICON_LEFT_MARGIN + ICON_SIZE + TEXT_GAP
 
         local btn = Instance.new("TextButton")
         btn.Parent = ItemsHolder
@@ -626,10 +671,9 @@ local function CreateSidebarGroup(parent, groupName)
         Corner(btn,6)
 
         -- default inactive look
-        btn.BackgroundColor3 = Color3.fromRGB(45,45,50)
+        btn.BackgroundColor3      = Color3.fromRGB(45,45,50)
         btn.BackgroundTransparency = 1
 
-        -- icon
         local IconImg = Instance.new("ImageLabel")
         IconImg.Parent = btn
         IconImg.BackgroundTransparency = 1
@@ -639,7 +683,6 @@ local function CreateSidebarGroup(parent, groupName)
         IconImg.ImageColor3 = Color3.fromRGB(255,0,80)
         IconImg.ZIndex = 6
 
-        -- text block
         local TxtBlock = Instance.new("Frame")
         TxtBlock.Parent = btn
         TxtBlock.BackgroundTransparency = 1
@@ -677,46 +720,62 @@ local function CreateSidebarGroup(parent, groupName)
         ArrowImg2.AnchorPoint = Vector2.new(1,0.5)
         ArrowImg2.Position = UDim2.new(1,-8,0.5,0)
         ArrowImg2.Size = UDim2.new(0,14,0,14)
-        ArrowImg2.Image = cfg.arrowIcon or ""
+        ArrowImg2.Image = ICON_ARROW_RIGHT
         ArrowImg2.ImageColor3 = Color3.fromRGB(255,255,255)
         ArrowImg2.ZIndex = 7
 
-        -- hover
+        -- hover effect (only when not active)
         btn.MouseEnter:Connect(function()
-            btn.BackgroundTransparency = 0
-            btn.BackgroundColor3 = Color3.fromRGB(60,60,64)
+            if currentActiveBtn ~= btn then
+                btn.BackgroundTransparency = 0
+                btn.BackgroundColor3 = Color3.fromRGB(60,60,64)
+            end
         end)
         btn.MouseLeave:Connect(function()
-            btn.BackgroundColor3 = Color3.fromRGB(45,45,50)
-            btn.BackgroundTransparency = 1
+            if currentActiveBtn ~= btn then
+                btn.BackgroundColor3 = Color3.fromRGB(45,45,50)
+                btn.BackgroundTransparency = 1
+            end
         end)
 
         btn.MouseButton1Click:Connect(function()
+            -- update active ui styles
+            if currentActiveBtn and currentActiveBtn ~= btn then
+                local oldInfo = currentActiveBtn.__ui_info
+                applyActive(currentActiveBtn, oldInfo, false)
+            end
+            currentActiveBtn = btn
+            applyActive(btn, btn.__ui_info, true)
+
+            -- callback to user (e.g. switch page)
             if cfg.onClick then
-                cfg.onClick(tabName, btn, {
-                    TitleLabel = TitleLbl,
-                    SubLabel   = SubLbl,
-                    Icon       = IconImg,
-                    Arrow      = ArrowImg2,
-                })
+                cfg.onClick(tabName, btn, btn.__ui_info)
             end
         end)
+
+        -- store info for active styling
+        btn.__ui_info = {
+            TitleLabel = TitleLbl,
+            SubLabel   = SubLbl,
+            Icon       = IconImg,
+            Arrow      = ArrowImg2,
+        }
 
         return btn
     end
 
     return {
-        Holder        = Holder,
-        ItemsHolder   = ItemsHolder,
-        AddItem       = AddItem,
-        RecalcHeight  = recalcHeight,
-        SetExpanded   = setExpandedState, -- true/false instant (no tween)
-        TweenExpanded = tweenExpand,      -- true/false animate
+        GroupHeader        = Holder,
+        ItemsHolder        = ItemsHolder,
+        AddItem            = AddItem,
+        RecalcHeight       = recalcHeight,
+        SetExpandedInstant = setExpandedInstant, -- open bool
+        TweenExpanded      = tweenExpanded,      -- open bool
     }
 end
 
 ----------------------------------------------------------------
--- Public API export
+-- Public API
 ----------------------------------------------------------------
 local UI = {
     GetParentGui        = getParentGui,
@@ -724,12 +783,16 @@ local UI = {
     Corner              = Corner,
     Stroke              = Stroke,
     Hoverify            = Hoverify,
+
     MakeToggle          = MakeToggle,
     MakeSlider          = MakeSlider,
+
     AddStandaloneHeader = AddStandaloneHeader,
     CreateSectionCard   = CreateSectionCard,
     CreatePage          = CreatePage,
+
     CreateSidebarGroup  = CreateSidebarGroup,
+
     TweenService        = TweenService,
     UIS                 = UIS,
 }
