@@ -732,6 +732,7 @@ end
 local Pages = {}
 local ActiveTab = nil
 
+-- Replace existing CreatePage with this version (auto-sets first created page as Active)
 local function CreatePage(name)
     local Page = New("ScrollingFrame", {
         Parent = ContentHolder,
@@ -763,6 +764,13 @@ local function CreatePage(name)
         Frame = Page,
         Rows  = {},
     }
+
+    -- หากยังไม่มี ActiveTab (ยังไม่มีหน้าอื่นถูกสร้างก่อน) -> ตั้งหน้าปัจจุบันเป็น Active
+    if not ActiveTab then
+        ActiveTab = name
+        Page.Visible = true
+    end
+
     return Pages[name]
 end
 
