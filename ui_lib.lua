@@ -1320,51 +1320,45 @@ function UI:AddSidebarItem(groupName, cfg)
 end
 
 
+-- ค้นหาเฉพาะแถวการตั้งค่าในเพจที่เปิดอยู่ (Rows ใน current page)
 local function refreshSearch()
     local term = tostring(SearchInput.Text or ""):lower()
 
-    -- กรองเฉพาะ sidebar item
-    for tabKey, pack in pairs(SidebarButtons) do
-        local btn = pack.Button
-        local sub = pack.SubLabel
-        if btn then
-            local titleText = (tabKey or ""):lower()
-            local subText   = (sub and sub.Text or ""):lower()
+    -- เอาหน้าปัจจุบัน
+    local current = Pages[ActiveTab]
+    if not current then
+        return
+    end
 
-            local match = (term == ""
-                or string.find(titleText, term, 1, true)
-                or string.find(subText, term, 1, true)
-            )
+    local rows = current.Rows or {}
+    for _, rowInfo in ipairs(rows) do
+        -- rowInfo ถูกสร้างจาก AddToggleRow / AddSliderRow
+        local rowFrame = rowInfo.RowFrame
+        if rowFrame then
+            -- ข้อความหัวข้อ + คำอธิบาย
+            local titleText = (rowInfo.Title and rowInfo.Title.Text or ""):lower()
+            local descText  = (rowInfo.Desc  and rowInfo.Desc.Text  or ""):lower()
 
-            btn.Visible = match
+            local match =
+                (term == "") or
+                (string.find(titleText, term, 1, true) ~= nil) or
+                (string.find(descText,  term, 1, true) ~= nil)
 
-            -- ถ้า match ให้บังคับขยาย group ให้ผู้ใช้เห็นปุ่ม
-            if match and btn.Parent and SideScroll and btn.Parent:IsDescendantOf(SideScroll) then
-                for _, gdata in pairs(Groups) do
-                    if gdata.ItemsHolder
-                    and btn:IsDescendantOf(gdata.ItemsHolder)
-                    and gdata._expandNow then
-
-                        -- คำนวณความสูงล่าสุดก่อน expand
-                        local total = 0
-                        local listPadding = gdata.ItemsList and gdata.ItemsList.Padding.Offset or 0
-                        for _,child in ipairs(gdata.ItemsHolder:GetChildren()) do
-                            if child:IsA("GuiObject") and child ~= gdata.ItemsList then
-                                total += child.AbsoluteSize.Y + listPadding
-                            end
-                        end
-                        if total > 0 then total -= listPadding end
-                        if gdata._setExpandedH then
-                            gdata._setExpandedH(total)
-                        end
-
-                        gdata._expandNow()
-                    end
-                end
-            end
+            rowFrame.Visible = match
         end
     end
 end
+
+-- เรียกทุกครั้งที่มีการพิมพ์
+SearchInput:GetPropertyChangedSignal("Text"):Connect(refreshSearch)
+
+-- เผื่อผู้ใช้กด Enter แล้วอยากให้ฟิลเตอร์ทำงานก็เช็คอีกครั้ง
+SearchInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        refreshSearch()
+    end
+end)
+
 
 -- Section card creation (attached to any parent frame)
 function UI:CreateSectionCard(parent)
