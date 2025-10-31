@@ -438,7 +438,7 @@ end
 -- HeaderBar tiny nav buttons (now only sidebar toggle)
 --------------------------------------------------
 local NavGroup = New("Frame", {
-    Parent = HeaderBar,
+    Parent = HeaderBar,        -- ✅ อยู่ใน HeaderBar (ดีมาก)
     BackgroundTransparency = 1,
     Size = UDim2.new(0,36,1,0),
     Position = UDim2.new(0,12,0,0),
@@ -447,7 +447,7 @@ local NavGroup = New("Frame", {
 
 local function TinyNavBtn(imgId, x)
     local b = New("ImageButton", {
-        Parent = NavGroup,
+        Parent = NavGroup,     -- ✅ ปุ่มอยู่ใน NavGroup (HeaderBar), ไม่ใช่ Sidebar
         BackgroundColor3 = Color3.fromRGB(50,50,52),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -463,13 +463,13 @@ local function TinyNavBtn(imgId, x)
     return b
 end
 
--- ใช้ตัวแปรด้านบน (อย่าประกาศ local ใหม่ซ้ำ)
 BtnSidebar = TinyNavBtn(ICON_SIDEBAR_ITEM, 0)
 BtnSidebar.Visible = true
 
 BtnSidebar.MouseButton1Click:Connect(function()
     ToggleSidebar()
 end)
+
 
 
 --------------------------------------------------
