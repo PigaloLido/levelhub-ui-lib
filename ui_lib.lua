@@ -295,88 +295,39 @@ local HeaderBarBG = New("Frame", {
     ZIndex = 3,
 })
 
-
--- Resize handle (put after HeaderBar/HeaderBarBG creation)
--- ใส่ไว้ใต้ HeaderBar / HeaderBarBG ในไฟล์ ui_lib.lua
-local MIN_WINDOW_WIDTH = 400   -- ขนาดต่ำสุดที่อนุญาต (px)
-local MIN_WINDOW_HEIGHT = 240  -- ขนาดต่ำสุดที่อนุญาต (px)
-
-local ResizeGrip = New("ImageButton", {
-    Parent = HeaderBar,
-    Name = "ResizeGrip",
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    Size = UDim2.new(0,16,0,16),
-    Position = UDim2.new(1,-18,0,4), -- มุมบนขวาเล็กน้อยลงมา 4px
-    AnchorPoint = Vector2.new(0,0),
-    Image = ICON_ARROW_DOWN, -- ใช้ไอคอนใดก็ได้ หรือ "" ถ้าไม่ต้องการ
-    ImageColor3 = Color3.fromRGB(160,160,170),
-    ZIndex = 50,
-    AutoButtonColor = false,
-})
-ResizeGrip.ImageTransparency = 0.6
-Hoverify(ResizeGrip, true)
-
--- สถานะลากขยาย
-do
-    local resizing = false
-    local startMouse = Vector2.new(0,0)
-    local startSize = UDim2.new(0,0,0,0)
-    local startAbsSize = Vector2.new(0,0)
-
-    -- helper: clamp a pixel size into UDim2 with same anchor (0)
-    local function clampSize(pxW, pxH)
-        pxW = math.max(pxW, MIN_WINDOW_WIDTH)
-        pxH = math.max(pxH, MIN_WINDOW_HEIGHT)
-        return UDim2.new(0, math.floor(pxW + 0.5), 0, math.floor(pxH + 0.5))
-    end
-
-    ResizeGrip.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            resizing = true
-            startMouse = input.Position
-            startAbsSize = Main.AbsoluteSize
-            startSize = Main.Size
-            -- temporarily disable dragging (if you have header drag state)
-            -- we rely on HeaderBar drag separate logic; ensure it won't conflict
-        end
-    end)
-
-    ResizeGrip.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            resizing = false
-            -- store last size
-            WindowState.LastSize = Main.Size
-        end
-    end)
-
-    UIS.InputChanged:Connect(function(input)
-        if not resizing then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-
-        local delta = input.Position - startMouse
-        local newW = startAbsSize.X + delta.X
-        local newH = startAbsSize.Y + delta.Y
-
-        -- clamp to minimum and optionally to screen bounds (optional)
-        local screenW = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X or newW
-        local screenH = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.Y or newH
-
-        -- prevent exceeding screen size (optional). Comment out next two lines if you don't want this.
-        newW = math.min(newW, math.max(screenW - 40, MIN_WINDOW_WIDTH))  -- leave 40px margin
-        newH = math.min(newH, math.max(screenH - 40, MIN_WINDOW_HEIGHT))
-
-        local clamped = clampSize(newW, newH)
-        Main.Size = clamped
-        WindowState.LastSize = clamped
-
-        -- ensure RightPanel and Sidebar layouts update immediately
-        applySidebarLayout(SidebarState.CurrentWidth)
-    end)
-end
+-- -- drag main window by header
+-- do
+--     local dragging = false
+--     local dragOffset = Vector2.new(0,0)
+--     local function updateDrag(input)
+--         local mousePos = input.Position
+--         local newX = mousePos.X - dragOffset.X
+--         local newY = mousePos.Y - dragOffset.Y
+--         Main.Position = UDim2.new(0,newX,0,newY)
+--         WindowState.LastPos = Main.Position
+--     end
+--     HeaderBar.InputBegan:Connect(function(input)
+--         if input.UserInputType == Enum.UserInputType.MouseButton1 then
+--             dragging = true
+--             local mousePos = input.Position
+--             local mainAbs = Main.AbsolutePosition
+--             dragOffset = Vector2.new(mousePos.X - mainAbs.X, mousePos.Y - mainAbs.Y)
+--         end
+--     end)
+--     HeaderBar.InputEnded:Connect(function(input)
+--         if input.UserInputType == Enum.UserInputType.MouseButton1 then
+--             dragging = false
+--         end
+--     end)
+--     UIS.InputChanged:Connect(function(input)
+--         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+--             updateDrag(input)
+--         end
+--     end)
+-- end
 
 
--- drag main window by header
+-- header drag: only on desktop mouse
 do
     local dragging = false
     local dragOffset = Vector2.new(0,0)
@@ -388,7 +339,7 @@ do
         WindowState.LastPos = Main.Position
     end
     HeaderBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and not IsMobile() then
             dragging = true
             local mousePos = input.Position
             local mainAbs = Main.AbsolutePosition
@@ -417,6 +368,129 @@ local SidebarState = {
     Collapsed     = false,
 }
 
+
+-- Mobile support patch: add this in ui_lib.lua after ScreenGui/Main/Sidebar/RightPanel creation
+local function IsMobile()
+    -- treat as mobile if touch enabled OR narrow viewport
+    local touch = UIS.TouchEnabled
+    local cam = workspace.CurrentCamera
+    local vw = 0
+    if cam then vw = cam.ViewportSize.X end
+    return touch or vw <= 720
+end
+
+-- parameters for mobile / desktop
+local MobileParams = {
+    MainSizeMobile = UDim2.new(0.95, 0, 0.88, 0),
+    MainPosMobile  = UDim2.new(0.5, 0, 0.5, 0),
+    SidebarWidthMobile = 160,
+    ItemHeightMobile = 48,
+    IconLeftMarginMobile = 8,
+    TextGapMobile = 10,
+}
+
+local function applyMobileLayout(isMobile)
+    if isMobile then
+        -- center main and make it scale with screen
+        Main.AnchorPoint = Vector2.new(0.5,0.5)
+        Main.Position = MobileParams.MainPosMobile
+        Main.Size = MobileParams.MainSizeMobile
+
+        -- smaller sidebar width by default, and collapse sidebar for narrow screens
+        Sidebar.Size = UDim2.new(0, MobileParams.SidebarWidthMobile, 1, 0)
+        SidebarState.ExpandedWidth = MobileParams.SidebarWidthMobile
+        SidebarState.CurrentWidth = MobileParams.SidebarWidthMobile
+
+        -- Right panel shifts accordingly
+        RightPanel.Position = UDim2.new(0, MobileParams.SidebarWidthMobile, 0, 0)
+        RightPanel.Size = UDim2.new(1, -MobileParams.SidebarWidthMobile, 1, 0)
+
+        -- touch-friendly: ensure buttons (sidebar items) min height and spacing
+        -- update SideScroll UIListLayout padding and item sizes dynamically by adjusting globals used in AddSideItem
+        -- (we'll set a small flag that AddSideItem uses if re-created; but we can also iterate existing sidebar buttons)
+        for name, pack in pairs(SidebarButtons) do
+            local btn = pack.Button
+            if btn and btn:IsA("GuiObject") then
+                btn.Size = UDim2.new(1, -4, 0, MobileParams.ItemHeightMobile)
+            end
+            local icon = pack.Icon
+            if icon and icon:IsA("ImageLabel") then
+                icon.Position = UDim2.new(0, MobileParams.IconLeftMarginMobile, 0, (MobileParams.ItemHeightMobile - icon.Size.Y.Offset)/2)
+            end
+        end
+
+        -- increase hit area of header controls
+        HeaderBar.Size = UDim2.new(1,0,0,56)
+
+        -- on mobile, default to collapsed sidebar to save space (optional: keep expanded if wanted)
+        if not SidebarState.Collapsed then
+            -- keep collapsed for narrow screens
+            CollapseSidebar()
+        end
+
+    else
+        -- desktop layout (original defaults)
+        Main.AnchorPoint = Vector2.new(0,0)
+        Main.Position = WindowState.LastPos or WindowState.LastPos
+        Main.Size = WindowState.LastSize or WindowState.LastSize
+
+        Sidebar.Size = UDim2.new(0, SidebarState.ExpandedWidth, 1, 0)
+        RightPanel.Position = UDim2.new(0, SidebarState.ExpandedWidth, 0, 0)
+        RightPanel.Size = UDim2.new(1, -SidebarState.ExpandedWidth, 1, 0)
+
+        HeaderBar.Size = UDim2.new(1,0,0,44)
+
+        -- restore sidebar visible if it was previously expanded
+        if SidebarState.Collapsed then
+            -- keep collapsed state as-is (do nothing), else expand
+        end
+
+        -- restore sidebar button sizes
+        for name, pack in pairs(SidebarButtons) do
+            local btn = pack.Button
+            if btn and btn:IsA("GuiObject") then
+                btn.Size = UDim2.new(1, -4, 0, 40)
+            end
+            local icon = pack.Icon
+            if icon and icon:IsA("ImageLabel") then
+                local iconSize = icon.Size.Y.Offset or 18
+                icon.Position = UDim2.new(0, 8, 0, (40 - iconSize)/2)
+            end
+        end
+    end
+end
+
+-- call on init and on viewport change
+local function UpdateLayoutForDevice()
+    local mobile = IsMobile()
+    applyMobileLayout(mobile)
+end
+
+-- run once after GUI built
+task.defer(UpdateLayoutForDevice)
+
+-- re-run when viewport size changes or touch capability changes
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    task.defer(UpdateLayoutForDevice)
+end)
+UIS:GetPropertyChangedSignal("TouchEnabled"):Connect(function()
+    task.defer(UpdateLayoutForDevice)
+end)
+if workspace.CurrentCamera then
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+        task.defer(UpdateLayoutForDevice)
+    end)
+end
+
+-- Make header drag only on desktop (mouse)
+-- remove existing drag behavior or guard it with mouse-only checks
+-- If you have a header drag block earlier, wrap dragging checks with:
+-- local function isMouseInput(input)
+--     return input and input.UserInputType == Enum.UserInputType.MouseButton1
+-- end
+-- and only start/continue drag when not IsMobile()
+
+
 local function applySidebarLayout(width)
     Sidebar.Size    = UDim2.new(0, width, 1, 0)
     SidebarState.CurrentWidth = width
@@ -424,6 +498,7 @@ local function applySidebarLayout(width)
     RightPanel.Position = UDim2.new(0, width, 0, 0)
     RightPanel.Size     = UDim2.new(1, -width, 1, 0)
 end
+
 
 local function CollapseSidebar()
     if SidebarState.Collapsed then return end
@@ -447,6 +522,8 @@ local function CollapseSidebar()
         Sidebar.Active = false
     end)
 end
+
+
 
 local function ExpandSidebar()
     if not SidebarState.Collapsed then return end
