@@ -343,18 +343,11 @@ local function applySidebarLayout(width)
     RightPanel.Size     = UDim2.new(1, -width, 1, 0)
 end
 
--- ปิดแถบข้าง
 local function CollapseSidebar()
     if SidebarState.Collapsed then return end
     SidebarState.Collapsed = true
-
     local targetWidth = 0
 
-    -- 1) ซ่อนเนื้อหาทั้งหมดใน Sidebar ทันที (SideScroll + MacBar)
-    SideScroll.Visible = false
-    MacBar.Visible = false
-
-    -- 2) Tween ย่อกรอบ Sidebar เหลือ width = 0
     local tw1 = tweenProp(Sidebar, {
         Size = UDim2.new(0, targetWidth, 1, 0)
     }, 0.22)
@@ -370,12 +363,9 @@ local function CollapseSidebar()
     task.delay(0.22, function()
         SidebarState.CurrentWidth = targetWidth
         Sidebar.Active = false
-        -- เราจะไม่ซ่อน Sidebar.Frame เอง (เพราะยังใช้กรอบอยู่)
-        -- แค่ SideScroll/MacBar หายก็พอ ภาพจะดูเหมือนปิดเรียบร้อย
     end)
 end
 
--- เปิดแถบข้าง
 local function ExpandSidebar()
     if not SidebarState.Collapsed then return end
     SidebarState.Collapsed = false
@@ -383,11 +373,6 @@ local function ExpandSidebar()
     local targetWidth = SidebarState.ExpandedWidth
     Sidebar.Active = true
 
-    -- 1) ก่อน tween ให้โชว์เนื้อหากลับมาก่อน
-    SideScroll.Visible = true
-    MacBar.Visible = true
-
-    -- 2) Tween ขยาย Sidebar กลับตามปกติ
     local tw1 = tweenProp(Sidebar, {
         Size = UDim2.new(0, targetWidth, 1, 0)
     }, 0.22)
@@ -407,10 +392,8 @@ end
 
 local function ToggleSidebar()
     if SidebarState.Collapsed then
-        -- ตอนนี้ sidebar ปิดอยู่ → เปิด
         ExpandSidebar()
     else
-        -- ตอนนี้ sidebar เปิดอยู่ → ปิด
         CollapseSidebar()
     end
 end
