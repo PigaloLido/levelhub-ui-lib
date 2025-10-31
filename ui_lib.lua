@@ -1282,10 +1282,29 @@ function UI:SetActiveTab(name)
 end
 
 -- Sidebar groups + items
-function UI:AddSidebarGroup(name)
+function UI:AddSidebarGroup(name, expand)
     local h, items = AddGroupHeader(name)
     h.Parent = SideScroll
     items.Parent = SideScroll
+
+    -- ถ้าผู้เรียกต้องการให้ขยายตอนสร้าง ให้เรียก _expandNow()
+    if expand and Groups[name] and Groups[name]._expandNow then
+        -- ให้เดเลย์สั้น ๆ เล็กน้อยก่อนขยาย เพื่อให้ AbsoluteSize ถูกคำนวณเรียบร้อย
+        task.defer(function()
+            -- safety: รีคัลคูลเล็กน้อย ถ้ามีปุ่มในกลุ่มแล้ว
+            local total = 0
+            local listPadding = Groups[name].ItemsList.Padding.Offset
+            for _,child in ipairs(Groups[name].ItemsHolder:GetChildren()) do
+                if child:IsA("GuiObject") and child ~= Groups[name].ItemsList then
+                    total = total + child.AbsoluteSize.Y + listPadding
+                end
+            end
+            if total > 0 then total = total - listPadding end
+            Groups[name]._setExpandedH(total)
+            Groups[name]._expandNow()
+        end)
+    end
+
     return Groups[name]
 end
 
