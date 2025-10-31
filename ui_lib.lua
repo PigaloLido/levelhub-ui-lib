@@ -354,6 +354,7 @@ local function CollapseSidebar()
 
     local targetWidth = 0
 
+    -- เล่นยุบ
     local tw1 = tweenProp(Sidebar, {
         Size = UDim2.new(0, targetWidth, 1, 0)
     }, 0.22)
@@ -366,13 +367,16 @@ local function CollapseSidebar()
     tw1:Play()
     tw2:Play()
 
-    -- หลัง animation จบ
     task.delay(0.22, function()
         SidebarState.CurrentWidth = targetWidth
         Sidebar.Active = false
+
+        -- 🔒 ปิดการมองเห็นและการคลิกทั้งหมด
+        Sidebar.Visible = false
+
         SidebarState.Animating = false
 
-        -- ตอนนี้ sidebar ปิดอยู่ → ซ่อนปุ่ม
+        -- (อันนี้ตาม requirement ก่อนหน้า ถ้าจะซ่อนปุ่ม toggle เองด้วย)
         if BtnSidebar then
             BtnSidebar.Visible = false
         end
@@ -385,6 +389,9 @@ local function ExpandSidebar()
     SidebarState.Animating = true
 
     local targetWidth = SidebarState.ExpandedWidth
+
+    -- ก่อนเล่นขยาย ต้องทำให้ sidebar โผล่/คลิกได้อีกครั้ง
+    Sidebar.Visible = true
     Sidebar.Active = true
 
     local tw1 = tweenProp(Sidebar, {
@@ -403,12 +410,13 @@ local function ExpandSidebar()
         SidebarState.CurrentWidth = targetWidth
         SidebarState.Animating = false
 
-        -- ตอนนี้ sidebar เปิดแล้ว → โชว์ปุ่มอีกครั้ง
+        -- ถ้าคุณอยากให้ปุ่ม toggle โผล่กลับตอนเปิด
         if BtnSidebar then
             BtnSidebar.Visible = true
         end
     end)
 end
+
 
 local function ToggleSidebar()
     -- กัน spam ระหว่าง tween
