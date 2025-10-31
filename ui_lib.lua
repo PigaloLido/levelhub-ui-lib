@@ -785,69 +785,6 @@ local function SetActiveTab(tabName)
     -- clear search + reset filter visuals
     SearchInput.Text = ""
 end
-
--- search filter logic
--- Replace existing refreshSearch function with this improved version
-
--- Replace existing refreshSearch function with this improved version
-
-local function refreshSearch()
-    local term = tostring(SearchInput.Text or ""):lower()
-
-    -- 1) Filter rows on active page (if any)
-    local current = Pages[ActiveTab]
-    if current then
-        local rows = current.Rows or {}
-        for _,rowInfo in ipairs(rows) do
-            local t = (rowInfo.Title and rowInfo.Title.Text or ""):lower()
-            local d = (rowInfo.Desc and rowInfo.Desc.Text or ""):lower()
-            local match = (term == "" or string.find(t, term, 1, true) or string.find(d, term, 1, true))
-            rowInfo.RowFrame.Visible = match
-        end
-    end
-
-    -- 2) Also filter sidebar items when there's a search term
-    --    Show sidebar items whose title or sub matches the term.
-    --    If term is empty, reset visuals to normal (show all).
-    for tabKey, pack in pairs(SidebarButtons) do
-        local btn = pack.Button
-        local sub = pack.SubLabel
-        local titleText = (tabKey or ""):lower()
-        local subText = (sub and sub.Text or ""):lower()
-        local match = (term == "" or string.find(titleText, term, 1, true) or string.find(subText, term, 1, true))
-
-        -- Show/hide the sidebar button based on match
-        btn.Visible = match
-
-        -- If match, and the group containing this button is collapsed, expand that group so user can see it.
-        if match and btn.Parent and btn.Parent:IsDescendantOf(SideScroll) then
-            -- btn.Parent is the ItemsHolder frame or the SideScroll if top-level; find its group owner in Groups
-            -- We search Groups for which ItemsHolder contains this btn
-            for gname, gdata in pairs(Groups) do
-                if gdata.ItemsHolder and btn:IsDescendantOf(gdata.ItemsHolder) then
-                    -- expand that group visually (without modifying stored collapsed state)
-                    if gdata._expandNow then
-                        gdata._expandNow()
-                    end
-                end
-            end
-        end
-    end
-
-    -- 3) If term is empty, ensure groups return to their previously set collapsed/expanded state
-    --    (We don't track previous collapsed state per-group in this simplified change,
-    --     so we will leave groups expanded when matching. If you want to restore original
-    --     collapse state when term is cleared, we can add tracking.)
-end
-
--- Connect both when text changes and when input loses focus (press Enter)
-SearchInput:GetPropertyChangedSignal("Text"):Connect(refreshSearch)
-SearchInput.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        refreshSearch()
-    end
-end)
-
 --------------------------------------------------
 -- Sidebar Groups / Items (public API)
 --------------------------------------------------
@@ -1109,6 +1046,72 @@ New("UIListLayout", {
     SortOrder = Enum.SortOrder.LayoutOrder,
     Padding = UDim.new(0,4),
 })
+
+
+-- search filter logic
+-- Replace existing refreshSearch function with this improved version
+
+-- Replace existing refreshSearch function with this improved version
+
+local function refreshSearch()
+    local term = tostring(SearchInput.Text or ""):lower()
+
+    -- 1) Filter rows on active page (if any)
+    local current = Pages[ActiveTab]
+    if current then
+        local rows = current.Rows or {}
+        for _,rowInfo in ipairs(rows) do
+            local t = (rowInfo.Title and rowInfo.Title.Text or ""):lower()
+            local d = (rowInfo.Desc and rowInfo.Desc.Text or ""):lower()
+            local match = (term == "" or string.find(t, term, 1, true) or string.find(d, term, 1, true))
+            rowInfo.RowFrame.Visible = match
+        end
+    end
+
+    -- 2) Also filter sidebar items when there's a search term
+    --    Show sidebar items whose title or sub matches the term.
+    --    If term is empty, reset visuals to normal (show all).
+    for tabKey, pack in pairs(SidebarButtons) do
+        local btn = pack.Button
+        local sub = pack.SubLabel
+        local titleText = (tabKey or ""):lower()
+        local subText = (sub and sub.Text or ""):lower()
+        local match = (term == "" or string.find(titleText, term, 1, true) or string.find(subText, term, 1, true))
+
+        -- Show/hide the sidebar button based on match
+        btn.Visible = match
+
+        -- If match, and the group containing this button is collapsed, expand that group so user can see it.
+        if match and btn.Parent and btn.Parent:IsDescendantOf(SideScroll) then
+            -- btn.Parent is the ItemsHolder frame or the SideScroll if top-level; find its group owner in Groups
+            -- We search Groups for which ItemsHolder contains this btn
+            for gname, gdata in pairs(Groups) do
+                if gdata.ItemsHolder and btn:IsDescendantOf(gdata.ItemsHolder) then
+                    -- expand that group visually (without modifying stored collapsed state)
+                    if gdata._expandNow then
+                        gdata._expandNow()
+                    end
+                end
+            end
+        end
+    end
+
+    -- 3) If term is empty, ensure groups return to their previously set collapsed/expanded state
+    --    (We don't track previous collapsed state per-group in this simplified change,
+    --     so we will leave groups expanded when matching. If you want to restore original
+    --     collapse state when term is cleared, we can add tracking.)
+end
+
+-- Connect both when text changes and when input loses focus (press Enter)
+SearchInput:GetPropertyChangedSignal("Text"):Connect(refreshSearch)
+SearchInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        refreshSearch()
+    end
+end)
+
+
+
 
 --------------------------------------------------
 -- DockButton (minimize restore)
