@@ -789,6 +789,8 @@ end
 -- search filter logic
 -- Replace existing refreshSearch function with this improved version
 
+-- Replace existing refreshSearch function with this improved version
+
 local function refreshSearch()
     local term = tostring(SearchInput.Text or ""):lower()
 
