@@ -333,6 +333,7 @@ local SidebarState = {
     ExpandedWidth = 220,
     CurrentWidth  = 220,
     Collapsed     = false,
+    Animating     = false, -- ป้องกันกดระหว่าง tween
 }
 
 local function applySidebarLayout(width)
@@ -343,9 +344,14 @@ local function applySidebarLayout(width)
     RightPanel.Size     = UDim2.new(1, -width, 1, 0)
 end
 
+-- เราจะประกาศ BtnSidebar ไว้ล่วงหน้าให้ตัว collapse/expand มองเห็น
+local BtnSidebar -- forward declare
+
 local function CollapseSidebar()
-    if SidebarState.Collapsed then return end
+    if SidebarState.Collapsed or SidebarState.Animating then return end
     SidebarState.Collapsed = true
+    SidebarState.Animating = true
+
     local targetWidth = 0
 
     local tw1 = tweenProp(Sidebar, {
@@ -360,15 +366,23 @@ local function CollapseSidebar()
     tw1:Play()
     tw2:Play()
 
+    -- หลัง animation จบ
     task.delay(0.22, function()
         SidebarState.CurrentWidth = targetWidth
         Sidebar.Active = false
+        SidebarState.Animating = false
+
+        -- ตอนนี้ sidebar ปิดอยู่ → ซ่อนปุ่ม
+        if BtnSidebar then
+            BtnSidebar.Visible = false
+        end
     end)
 end
 
 local function ExpandSidebar()
-    if not SidebarState.Collapsed then return end
+    if (not SidebarState.Collapsed) or SidebarState.Animating then return end
     SidebarState.Collapsed = false
+    SidebarState.Animating = true
 
     local targetWidth = SidebarState.ExpandedWidth
     Sidebar.Active = true
@@ -387,13 +401,28 @@ local function ExpandSidebar()
 
     task.delay(0.22, function()
         SidebarState.CurrentWidth = targetWidth
+        SidebarState.Animating = false
+
+        -- ตอนนี้ sidebar เปิดแล้ว → โชว์ปุ่มอีกครั้ง
+        if BtnSidebar then
+            BtnSidebar.Visible = true
+        end
     end)
 end
 
 local function ToggleSidebar()
+    -- กัน spam ระหว่าง tween
+    if SidebarState.Animating then return end
+
     if SidebarState.Collapsed then
+        -- ตอนนี้ sidebar ปิดอยู่ เรากำลังจะ "ขยาย"
+        -- ก่อนเริ่มขยาย ให้โชว์ปุ่มไว้ก่อน (เพื่อให้มองเห็นตอนกด)
+        if BtnSidebar then
+            BtnSidebar.Visible = true
+        end
         ExpandSidebar()
     else
+        -- ตอนนี้ sidebar เปิดอยู่ เรากำลังจะ "ยุบ"
         CollapseSidebar()
     end
 end
@@ -427,10 +456,14 @@ local function TinyNavBtn(imgId, x)
     return b
 end
 
-local BtnSidebar = TinyNavBtn(ICON_SIDEBAR_ITEM, 0)
+-- ใช้ตัวแปรด้านบน (อย่าประกาศ local ใหม่ซ้ำ)
+BtnSidebar = TinyNavBtn(ICON_SIDEBAR_ITEM, 0)
+BtnSidebar.Visible = true
+
 BtnSidebar.MouseButton1Click:Connect(function()
     ToggleSidebar()
 end)
+
 
 --------------------------------------------------
 -- Title (centered app title + subtitle)
