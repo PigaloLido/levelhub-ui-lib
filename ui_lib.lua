@@ -295,39 +295,7 @@ local HeaderBarBG = New("Frame", {
     ZIndex = 3,
 })
 
--- -- drag main window by header
--- do
---     local dragging = false
---     local dragOffset = Vector2.new(0,0)
---     local function updateDrag(input)
---         local mousePos = input.Position
---         local newX = mousePos.X - dragOffset.X
---         local newY = mousePos.Y - dragOffset.Y
---         Main.Position = UDim2.new(0,newX,0,newY)
---         WindowState.LastPos = Main.Position
---     end
---     HeaderBar.InputBegan:Connect(function(input)
---         if input.UserInputType == Enum.UserInputType.MouseButton1 then
---             dragging = true
---             local mousePos = input.Position
---             local mainAbs = Main.AbsolutePosition
---             dragOffset = Vector2.new(mousePos.X - mainAbs.X, mousePos.Y - mainAbs.Y)
---         end
---     end)
---     HeaderBar.InputEnded:Connect(function(input)
---         if input.UserInputType == Enum.UserInputType.MouseButton1 then
---             dragging = false
---         end
---     end)
---     UIS.InputChanged:Connect(function(input)
---         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
---             updateDrag(input)
---         end
---     end)
--- end
-
-
--- header drag: only on desktop mouse
+-- drag main window by header
 do
     local dragging = false
     local dragOffset = Vector2.new(0,0)
@@ -339,7 +307,7 @@ do
         WindowState.LastPos = Main.Position
     end
     HeaderBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and not IsMobile() then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             local mousePos = input.Position
             local mainAbs = Main.AbsolutePosition
