@@ -354,7 +354,6 @@ local function CollapseSidebar()
 
     local targetWidth = 0
 
-    -- เล่นยุบ
     local tw1 = tweenProp(Sidebar, {
         Size = UDim2.new(0, targetWidth, 1, 0)
     }, 0.22)
@@ -371,10 +370,15 @@ local function CollapseSidebar()
         SidebarState.CurrentWidth = targetWidth
         Sidebar.Active = false
 
-        -- 🔒 ปิดการมองเห็นและการคลิกทั้งหมด
+        -- ซ่อน sidebar จริงๆ เพื่อกันคลิกทะลุ
         Sidebar.Visible = false
 
         SidebarState.Animating = false
+
+        -- 🔴 ลบส่วนนี้ออก:
+        -- if BtnSidebar then
+        --     BtnSidebar.Visible = false
+        -- end
     end)
 end
 
@@ -385,7 +389,7 @@ local function ExpandSidebar()
 
     local targetWidth = SidebarState.ExpandedWidth
 
-    -- ก่อนเล่นขยาย ต้องทำให้ sidebar โผล่/คลิกได้อีกครั้ง
+    -- ต้องโชว์ sidebar ก่อน tween
     Sidebar.Visible = true
     Sidebar.Active = true
 
@@ -404,6 +408,11 @@ local function ExpandSidebar()
     task.delay(0.22, function()
         SidebarState.CurrentWidth = targetWidth
         SidebarState.Animating = false
+
+        -- 🟢 ก็ไม่ต้องไปยุ่ง BtnSidebar ด้วย
+        -- if BtnSidebar then
+        --     BtnSidebar.Visible = true
+        -- end
     end)
 end
 
