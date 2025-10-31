@@ -326,6 +326,104 @@ do
     end)
 end
 
+
+-- Resize handle: place this after the header drag block (after HeaderBar drag code)
+do
+    local RESIZE_SIZE = 12
+    local minW, minH = 360, 200
+    local maxW, maxH = math.huge, math.huge -- หรือกำหนดขนาดสูงสุดถ้าต้องการ
+
+    local ResizeHandle = New("Frame", {
+        Parent = Main,
+        BackgroundTransparency = 0,
+        BackgroundColor3 = Color3.fromRGB(60,60,64),
+        BorderSizePixel = 0,
+        Size = UDim2.new(0, RESIZE_SIZE, 0, RESIZE_SIZE),
+        AnchorPoint = Vector2.new(1,1),
+        Position = UDim2.new(1, 0, 1, 0),
+        ZIndex = 50,
+    })
+    Corner(ResizeHandle, 4)
+
+    -- small visual diagonal lines (optional)
+    local diag = New("ImageLabel", {
+        Parent = ResizeHandle,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -4, 1, -4),
+        Position = UDim2.new(0, 2, 0, 2),
+        Image = "",
+        ZIndex = 51,
+    })
+
+    Hoverify(ResizeHandle, true)
+
+    local dragging = false
+    local startMouse = Vector2.new()
+    local startSize = UDim2.new()
+    local startPos = UDim2.new()
+
+    local function clamp(v, a, b)
+        return math.max(a, math.min(b, v))
+    end
+
+    ResizeHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            startMouse = input.Position
+            startSize = Main.Size
+            startPos = Main.Position
+            -- capture mouse movement until release
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    ResizeHandle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if not dragging then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+
+        -- compute delta from starting mouse
+        local dx = input.Position.X - startMouse.X
+        local dy = input.Position.Y - startMouse.Y
+
+        -- starting absolute size/pos
+        local mainAbsPos = Main.AbsolutePosition
+        local mainAbsSize = Main.AbsoluteSize
+
+        -- convert startSize (UDim2) to pixel width/height using stored LastSize if needed
+        -- safer: use current AbsoluteSize as baseline
+        local newW = math.max(minW, math.floor(mainAbsSize.X + dx))
+        local newH = math.max(minH, math.floor(mainAbsSize.Y + dy))
+
+        if maxW and maxW ~= math.huge then newW = math.min(maxW, newW) end
+        if maxH and maxH ~= math.huge then newH = math.min(maxH, newH) end
+
+        -- Set Main size in pixels using UDim2.new(0, newW, 0, newH)
+        Main.Size = UDim2.new(0, newW, 0, newH)
+        WindowState.LastSize = Main.Size
+
+        -- Ensure RightPanel and Sidebar layout are consistent
+        local sidebarWidth = Sidebar.Size.X.Offset or SidebarState.CurrentWidth or Sidebar.AbsoluteSize.X
+        applySidebarLayout(sidebarWidth)
+    end)
+
+    -- when releasing mouse anywhere, stop dragging
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+end
+
 --------------------------------------------------
 -- Sidebar Show/Hide logic (TinyNavBtn)
 --------------------------------------------------
