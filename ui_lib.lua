@@ -295,6 +295,87 @@ local HeaderBarBG = New("Frame", {
     ZIndex = 3,
 })
 
+
+-- Resize handle (put after HeaderBar/HeaderBarBG creation)
+-- ใส่ไว้ใต้ HeaderBar / HeaderBarBG ในไฟล์ ui_lib.lua
+local MIN_WINDOW_WIDTH = 400   -- ขนาดต่ำสุดที่อนุญาต (px)
+local MIN_WINDOW_HEIGHT = 240  -- ขนาดต่ำสุดที่อนุญาต (px)
+
+local ResizeGrip = New("ImageButton", {
+    Parent = HeaderBar,
+    Name = "ResizeGrip",
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Size = UDim2.new(0,16,0,16),
+    Position = UDim2.new(1,-18,0,4), -- มุมบนขวาเล็กน้อยลงมา 4px
+    AnchorPoint = Vector2.new(0,0),
+    Image = ICON_ARROW_DOWN, -- ใช้ไอคอนใดก็ได้ หรือ "" ถ้าไม่ต้องการ
+    ImageColor3 = Color3.fromRGB(160,160,170),
+    ZIndex = 50,
+    AutoButtonColor = false,
+})
+ResizeGrip.ImageTransparency = 0.6
+Hoverify(ResizeGrip, true)
+
+-- สถานะลากขยาย
+do
+    local resizing = false
+    local startMouse = Vector2.new(0,0)
+    local startSize = UDim2.new(0,0,0,0)
+    local startAbsSize = Vector2.new(0,0)
+
+    -- helper: clamp a pixel size into UDim2 with same anchor (0)
+    local function clampSize(pxW, pxH)
+        pxW = math.max(pxW, MIN_WINDOW_WIDTH)
+        pxH = math.max(pxH, MIN_WINDOW_HEIGHT)
+        return UDim2.new(0, math.floor(pxW + 0.5), 0, math.floor(pxH + 0.5))
+    end
+
+    ResizeGrip.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            resizing = true
+            startMouse = input.Position
+            startAbsSize = Main.AbsoluteSize
+            startSize = Main.Size
+            -- temporarily disable dragging (if you have header drag state)
+            -- we rely on HeaderBar drag separate logic; ensure it won't conflict
+        end
+    end)
+
+    ResizeGrip.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            resizing = false
+            -- store last size
+            WindowState.LastSize = Main.Size
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if not resizing then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+
+        local delta = input.Position - startMouse
+        local newW = startAbsSize.X + delta.X
+        local newH = startAbsSize.Y + delta.Y
+
+        -- clamp to minimum and optionally to screen bounds (optional)
+        local screenW = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X or newW
+        local screenH = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.Y or newH
+
+        -- prevent exceeding screen size (optional). Comment out next two lines if you don't want this.
+        newW = math.min(newW, math.max(screenW - 40, MIN_WINDOW_WIDTH))  -- leave 40px margin
+        newH = math.min(newH, math.max(screenH - 40, MIN_WINDOW_HEIGHT))
+
+        local clamped = clampSize(newW, newH)
+        Main.Size = clamped
+        WindowState.LastSize = clamped
+
+        -- ensure RightPanel and Sidebar layouts update immediately
+        applySidebarLayout(SidebarState.CurrentWidth)
+    end)
+end
+
+
 -- drag main window by header
 do
     local dragging = false
@@ -326,103 +407,6 @@ do
     end)
 end
 
-
--- Resize handle: place this after the header drag block (after HeaderBar drag code)
-do
-    local RESIZE_SIZE = 12
-    local minW, minH = 360, 200
-    local maxW, maxH = math.huge, math.huge -- หรือกำหนดขนาดสูงสุดถ้าต้องการ
-
-    local ResizeHandle = New("Frame", {
-        Parent = Main,
-        BackgroundTransparency = 0,
-        BackgroundColor3 = Color3.fromRGB(60,60,64),
-        BorderSizePixel = 0,
-        Size = UDim2.new(0, RESIZE_SIZE, 0, RESIZE_SIZE),
-        AnchorPoint = Vector2.new(1,1),
-        Position = UDim2.new(1, 0, 1, 0),
-        ZIndex = 50,
-    })
-    Corner(ResizeHandle, 4)
-
-    -- small visual diagonal lines (optional)
-    local diag = New("ImageLabel", {
-        Parent = ResizeHandle,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, -4, 1, -4),
-        Position = UDim2.new(0, 2, 0, 2),
-        Image = "",
-        ZIndex = 51,
-    })
-
-    Hoverify(ResizeHandle, true)
-
-    local dragging = false
-    local startMouse = Vector2.new()
-    local startSize = UDim2.new()
-    local startPos = UDim2.new()
-
-    local function clamp(v, a, b)
-        return math.max(a, math.min(b, v))
-    end
-
-    ResizeHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            startMouse = input.Position
-            startSize = Main.Size
-            startPos = Main.Position
-            -- capture mouse movement until release
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    ResizeHandle.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-
-    UIS.InputChanged:Connect(function(input)
-        if not dragging then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-
-        -- compute delta from starting mouse
-        local dx = input.Position.X - startMouse.X
-        local dy = input.Position.Y - startMouse.Y
-
-        -- starting absolute size/pos
-        local mainAbsPos = Main.AbsolutePosition
-        local mainAbsSize = Main.AbsoluteSize
-
-        -- convert startSize (UDim2) to pixel width/height using stored LastSize if needed
-        -- safer: use current AbsoluteSize as baseline
-        local newW = math.max(minW, math.floor(mainAbsSize.X + dx))
-        local newH = math.max(minH, math.floor(mainAbsSize.Y + dy))
-
-        if maxW and maxW ~= math.huge then newW = math.min(maxW, newW) end
-        if maxH and maxH ~= math.huge then newH = math.min(maxH, newH) end
-
-        -- Set Main size in pixels using UDim2.new(0, newW, 0, newH)
-        Main.Size = UDim2.new(0, newW, 0, newH)
-        WindowState.LastSize = Main.Size
-
-        -- Ensure RightPanel and Sidebar layout are consistent
-        local sidebarWidth = Sidebar.Size.X.Offset or SidebarState.CurrentWidth or Sidebar.AbsoluteSize.X
-        applySidebarLayout(sidebarWidth)
-    end)
-
-    -- when releasing mouse anywhere, stop dragging
-    UIS.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-end
 
 --------------------------------------------------
 -- Sidebar Show/Hide logic (TinyNavBtn)
