@@ -777,13 +777,15 @@ end
 local function SetActiveTab(tabName)
     ActiveTab = tabName
 
-    -- show only that page
     for name, data in pairs(Pages) do
         data.Frame.Visible = (name == tabName)
     end
 
-    -- clear search + reset filter visuals
+    -- reset search text
     SearchInput.Text = ""
+
+    -- รีเฟรชการมองเห็นแถว หลังเปลี่ยนแท็บ
+    refreshSearch()
 end
 --------------------------------------------------
 -- Sidebar Groups / Items (public API)
@@ -1349,15 +1351,13 @@ local function refreshSearch()
     end
 end
 
--- เรียกทุกครั้งที่มีการพิมพ์
 SearchInput:GetPropertyChangedSignal("Text"):Connect(refreshSearch)
-
--- เผื่อผู้ใช้กด Enter แล้วอยากให้ฟิลเตอร์ทำงานก็เช็คอีกครั้ง
 SearchInput.FocusLost:Connect(function(enterPressed)
     if enterPressed then
         refreshSearch()
     end
 end)
+
 
 
 -- Section card creation (attached to any parent frame)
