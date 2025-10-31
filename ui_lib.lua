@@ -1283,8 +1283,8 @@ function UI:SetActiveTab(name)
         local isActive = (tabKey == name)
 
         if isActive then
-            btn.BackgroundColor3      = Color3.fromRGB(255,0,80)
-            btn.BackgroundTransparency = 0
+            btn.BackgroundColor3      = Color3.fromRGB(255,0,80
+            btn.BackgroundTransparency = 1
             sub.TextColor3            = Color3.fromRGB(255,255,255)
             icon.ImageColor3          = Color3.fromRGB(255,255,255)
         else
