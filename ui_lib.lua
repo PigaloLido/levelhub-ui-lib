@@ -375,11 +375,6 @@ local function CollapseSidebar()
         Sidebar.Visible = false
 
         SidebarState.Animating = false
-
-        -- (อันนี้ตาม requirement ก่อนหน้า ถ้าจะซ่อนปุ่ม toggle เองด้วย)
-        if BtnSidebar then
-            BtnSidebar.Visible = false
-        end
     end)
 end
 
@@ -409,11 +404,6 @@ local function ExpandSidebar()
     task.delay(0.22, function()
         SidebarState.CurrentWidth = targetWidth
         SidebarState.Animating = false
-
-        -- ถ้าคุณอยากให้ปุ่ม toggle โผล่กลับตอนเปิด
-        if BtnSidebar then
-            BtnSidebar.Visible = true
-        end
     end)
 end
 
