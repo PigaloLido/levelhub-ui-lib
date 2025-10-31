@@ -933,6 +933,7 @@ local function AddGroupHeader(name)
 end
 
 -- Replace existing AddSideItem with this version (no icon background / no iconColor)
+-- Replace existing AddSideItem with this version (no icon background)
 local function AddSideItem(parentHolder, cfg)
     local thisTabName = cfg.name
     local ICON_SIZE        = cfg.iconSize or 18
@@ -1284,7 +1285,7 @@ function UI:SetActiveTab(name)
 
         if isActive then
             btn.BackgroundColor3      = Color3.fromRGB(255,0,80
-            btn.BackgroundTransparency = 1
+            btn.BackgroundTransparency = 0
             sub.TextColor3            = Color3.fromRGB(255,255,255)
             icon.ImageColor3          = Color3.fromRGB(255,255,255)
         else
