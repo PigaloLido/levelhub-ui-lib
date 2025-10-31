@@ -932,7 +932,7 @@ local function AddGroupHeader(name)
     return Holder, ItemsHolder
 end
 
--- Replace existing AddSideItem with this version
+-- Replace existing AddSideItem with this version (no icon background / no iconColor)
 local function AddSideItem(parentHolder, cfg)
     local thisTabName = cfg.name
     local ICON_SIZE        = cfg.iconSize or 18
@@ -955,25 +955,16 @@ local function AddSideItem(parentHolder, cfg)
     btn.BackgroundColor3 = isInitiallyActive and Color3.fromRGB(30,30,32) or Color3.fromRGB(0,0,0)
 
     -------------------------------------------------
-    -- ICON WITH BACKGROUND
+    -- ICON (no background frame)
     -------------------------------------------------
-    local IconBg = Instance.new("Frame")
-    IconBg.Parent = btn
-    IconBg.BackgroundColor3 = cfg.iconColor or Color3.fromRGB(255,0,80) -- pink default
-    IconBg.BorderSizePixel = 0
-    IconBg.Size = UDim2.new(0, ICON_SIZE+8, 0, ICON_SIZE+8)
-    IconBg.Position = UDim2.new(0, ICON_LEFT_MARGIN, 0, (48 - (ICON_SIZE+8))/2)
-    IconBg.ZIndex = 6
-    Corner(IconBg,6)
-
     local IconImg = Instance.new("ImageLabel")
-    IconImg.Parent = IconBg
+    IconImg.Parent = btn
     IconImg.BackgroundTransparency = 1
     IconImg.Size = UDim2.new(0, ICON_SIZE, 0, ICON_SIZE)
-    IconImg.Position = UDim2.new(0.5,-ICON_SIZE/2,0.5,-ICON_SIZE/2)
+    IconImg.Position = UDim2.new(0, ICON_LEFT_MARGIN, 0, (48 - ICON_SIZE)/2)
     IconImg.Image = cfg.icon or ICON_SIDEBAR_ITEM
     IconImg.ZIndex = 7
-    IconImg.ImageColor3 = Color3.fromRGB(255,255,255)
+    IconImg.ImageColor3 = cfg.iconTint or Color3.fromRGB(255,255,255)
 
     -------------------------------------------------
     -- TEXT BLOCK (Title + Sub)
@@ -1049,7 +1040,6 @@ local function AddSideItem(parentHolder, cfg)
         Button   = btn,
         SubLabel = SubLbl,
         Icon     = IconImg,
-        IconBg   = IconBg,
     }
 end
 
