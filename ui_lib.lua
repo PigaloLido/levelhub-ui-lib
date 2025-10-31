@@ -326,7 +326,6 @@ do
     end)
 end
 
-
 --------------------------------------------------
 -- Sidebar Show/Hide logic (TinyNavBtn)
 --------------------------------------------------
@@ -343,7 +342,6 @@ local function applySidebarLayout(width)
     RightPanel.Position = UDim2.new(0, width, 0, 0)
     RightPanel.Size     = UDim2.new(1, -width, 1, 0)
 end
-
 
 local function CollapseSidebar()
     if SidebarState.Collapsed then return end
@@ -367,8 +365,6 @@ local function CollapseSidebar()
         Sidebar.Active = false
     end)
 end
-
-
 
 local function ExpandSidebar()
     if not SidebarState.Collapsed then return end
