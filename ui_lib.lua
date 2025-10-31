@@ -801,7 +801,6 @@ local SidebarButtons = {}
 local HEADER_FONT = Enum.Font.SourceSansBold
 local SUB_FONT    = Enum.Font.SourceSans
 
--- Replace existing AddGroupHeader with this version
 local function AddGroupHeader(name)
     -- If already exists, return existing
     if Groups[name] then
@@ -811,7 +810,7 @@ local function AddGroupHeader(name)
     local Holder = Instance.new("Frame")
     Holder.Name = name .. "_Group"
     Holder.BackgroundTransparency = 1
-    Holder.Size = UDim2.new(1,-4,0,28) -- เพิ่มความสูงเล็กน้อย
+    Holder.Size = UDim2.new(1,-4,0,20)
     Holder.ZIndex = 4
 
     local Row = Instance.new("TextButton")
@@ -823,12 +822,11 @@ local function AddGroupHeader(name)
     Row.AutoButtonColor = false
     Row.ZIndex = 5
 
-    -- ▼ arrow icon
     local ArrowImg = Instance.new("ImageLabel")
     ArrowImg.Parent = Row
     ArrowImg.BackgroundTransparency = 1
     ArrowImg.Size = UDim2.new(0,14,0,14)
-    ArrowImg.Position = UDim2.new(1,-18,0,7)
+    ArrowImg.Position = UDim2.new(1,-18,0,3)
     ArrowImg.Image = ICON_ARROW_DOWN
     ArrowImg.ImageColor3 = Color3.fromRGB(160,160,170)
     ArrowImg.ZIndex = 6
@@ -836,30 +834,26 @@ local function AddGroupHeader(name)
     local Title = Instance.new("TextLabel")
     Title.Parent = Row
     Title.BackgroundTransparency = 1
-    Title.Position = UDim2.new(0,8,0,4)
-    Title.Size = UDim2.new(1,-36,0,20)
-    Title.Font = Enum.Font.SourceSansBold
+    Title.Position = UDim2.new(0,0,0,0)
+    Title.Size = UDim2.new(1,-24,1,0)
+    Title.Font = HEADER_FONT
     Title.Text = name
-    Title.TextColor3 = Color3.fromRGB(200,200,200) -- สี header
-    Title.TextSize = 16
+    Title.TextColor3 = Color3.fromRGB(160,160,170)
+    Title.TextSize = 18
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.ZIndex = 6
 
-    -- ที่วางปุ่มย่อย
     local ItemsHolder = Instance.new("Frame")
     ItemsHolder.BackgroundTransparency = 1
-    ItemsHolder.Size = UDim2.new(1,0,0,0) -- start collapsed
+    ItemsHolder.Size = UDim2.new(1,0,0,0)
     ItemsHolder.ClipsDescendants = true
     ItemsHolder.ZIndex = 4
 
     local ItemsList = Instance.new("UIListLayout")
     ItemsList.Parent = ItemsHolder
-    ItemsList.Padding = UDim.new(0,6)
+    ItemsList.Padding = UDim.new(0,2)
     ItemsList.SortOrder = Enum.SortOrder.LayoutOrder
 
-    ----------------------------------------------------------------
-    -- Tween หุบ/กาง
-    ----------------------------------------------------------------
     local collapsed = true
     local tweening = false
     local expandedHeight = 0
@@ -876,22 +870,22 @@ local function AddGroupHeader(name)
         tweening = true
         TweenService:Create(
             ItemsHolder,
-            TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+            TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
             { Size = UDim2.new(1,0,0,0) }
         ):Play()
         SetArrowRotation(90)
-        task.delay(0.18, function() tweening = false end)
+        task.delay(0.22, function() tweening = false end)
     end
 
     local function DoExpand()
         tweening = true
         TweenService:Create(
             ItemsHolder,
-            TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+            TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
             { Size = UDim2.new(1,0,0,expandedHeight) }
         ):Play()
         SetArrowRotation(0)
-        task.delay(0.18, function() tweening = false end)
+        task.delay(0.22, function() tweening = false end)
     end
 
     Row.MouseButton1Click:Connect(function()
@@ -903,10 +897,10 @@ local function AddGroupHeader(name)
             expandedHeight = 0
             for _,child in ipairs(ItemsHolder:GetChildren()) do
                 if child:IsA("GuiObject") and child ~= ItemsList then
-                    expandedHeight = expandedHeight + child.AbsoluteSize.Y + ItemsList.Padding.Offset
+                    expandedHeight += child.AbsoluteSize.Y + ItemsList.Padding.Offset
                 end
             end
-            if expandedHeight > 0 then expandedHeight = expandedHeight - ItemsList.Padding.Offset end
+            if expandedHeight > 0 then expandedHeight -= ItemsList.Padding.Offset end
             DoExpand()
         end
     end)
@@ -932,44 +926,38 @@ local function AddGroupHeader(name)
     return Holder, ItemsHolder
 end
 
--- Replace existing AddSideItem with this version (no icon background / no iconColor)
--- Replace existing AddSideItem with this version (no icon background)
 local function AddSideItem(parentHolder, cfg)
     local thisTabName = cfg.name
     local ICON_SIZE        = cfg.iconSize or 18
-    local ICON_LEFT_MARGIN = cfg.iconMarginLeft or 8
-    local TEXT_GAP = 10
+    local ICON_LEFT_MARGIN = cfg.iconMarginLeft or 10
+    local TEXT_GAP = 8
     local textStartX = ICON_LEFT_MARGIN + ICON_SIZE + TEXT_GAP
 
     local btn = Instance.new("TextButton")
     btn.Parent = parentHolder
     btn.Name = thisTabName
     btn.BorderSizePixel = 0
-    btn.Size = UDim2.new(1,-4,0,48)
+    btn.Size = UDim2.new(1,-4,0,40)
     btn.Text = ""
     btn.AutoButtonColor = false
     btn.ZIndex = 5
     Corner(btn,6)
 
     local isInitiallyActive = (thisTabName == ActiveTab)
+    btn.BackgroundColor3      = isInitiallyActive and Color3.fromRGB(255,0,80) or Color3.fromRGB(45,45,50)
     btn.BackgroundTransparency = isInitiallyActive and 0 or 1
-    btn.BackgroundColor3 = isInitiallyActive and Color3.fromRGB(30,30,32) or Color3.fromRGB(0,0,0)
 
-    -------------------------------------------------
-    -- ICON (no background frame)
-    -------------------------------------------------
     local IconImg = Instance.new("ImageLabel")
     IconImg.Parent = btn
     IconImg.BackgroundTransparency = 1
     IconImg.Size = UDim2.new(0, ICON_SIZE, 0, ICON_SIZE)
-    IconImg.Position = UDim2.new(0, ICON_LEFT_MARGIN, 0, (48 - ICON_SIZE)/2)
+    local yOff = math.floor((40 - ICON_SIZE)/2)
+    IconImg.Position = UDim2.new(0, ICON_LEFT_MARGIN, 0, yOff)
     IconImg.Image = cfg.icon or ICON_SIDEBAR_ITEM
-    IconImg.ZIndex = 7
-    IconImg.ImageColor3 = cfg.iconTint or Color3.fromRGB(255,255,255)
+    IconImg.ZIndex = 6
+    IconImg.ImageColor3 = isInitiallyActive and Color3.fromRGB(255,255,255)
+                                        or Color3.fromRGB(255,0,80)
 
-    -------------------------------------------------
-    -- TEXT BLOCK (Title + Sub)
-    -------------------------------------------------
     local TxtBlock = Instance.new("Frame")
     TxtBlock.Parent = btn
     TxtBlock.BackgroundTransparency = 1
@@ -982,10 +970,10 @@ local function AddSideItem(parentHolder, cfg)
     TitleLbl.BackgroundTransparency = 1
     TitleLbl.Size = UDim2.new(1,0,0,18)
     TitleLbl.Position = UDim2.new(0,0,0,6)
-    TitleLbl.Font = Enum.Font.SourceSansBold
+    TitleLbl.Font = HEADER_FONT
     TitleLbl.Text = thisTabName
-    TitleLbl.TextColor3 = Color3.fromRGB(240,240,240)
-    TitleLbl.TextSize = 14
+    TitleLbl.TextColor3 = Color3.fromRGB(255,255,255)
+    TitleLbl.TextSize = 13
     TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
     TitleLbl.ZIndex = 7
 
@@ -993,17 +981,15 @@ local function AddSideItem(parentHolder, cfg)
     SubLbl.Parent = TxtBlock
     SubLbl.BackgroundTransparency = 1
     SubLbl.Size = UDim2.new(1,0,0,14)
-    SubLbl.Position = UDim2.new(0,0,0,22)
-    SubLbl.Font = Enum.Font.SourceSans
+    SubLbl.Position = UDim2.new(0,0,0,20)
+    SubLbl.Font = SUB_FONT
     SubLbl.Text = cfg.sub or ""
     SubLbl.TextSize = 11
     SubLbl.TextXAlignment = Enum.TextXAlignment.Left
     SubLbl.ZIndex = 7
-    SubLbl.TextColor3 = Color3.fromRGB(160,160,170)
+    SubLbl.TextColor3 = isInitiallyActive and Color3.fromRGB(255,255,255)
+                                        or Color3.fromRGB(160,160,170)
 
-    -------------------------------------------------
-    -- Arrow ">"
-    -------------------------------------------------
     local ArrowImg = Instance.new("ImageLabel")
     ArrowImg.Parent = btn
     ArrowImg.BackgroundTransparency = 1
@@ -1011,20 +997,18 @@ local function AddSideItem(parentHolder, cfg)
     ArrowImg.Position = UDim2.new(1,-8,0.5,0)
     ArrowImg.Size = UDim2.new(0,14,0,14)
     ArrowImg.Image = ICON_ARROW_RIGHT
-    ArrowImg.ImageColor3 = Color3.fromRGB(200,200,200)
+    ArrowImg.ImageColor3 = Color3.fromRGB(255,255,255)
     ArrowImg.ZIndex = 7
 
-    -------------------------------------------------
-    -- Hover + Active behavior
-    -------------------------------------------------
     btn.MouseEnter:Connect(function()
         if ActiveTab ~= thisTabName then
             btn.BackgroundTransparency = 0
-            btn.BackgroundColor3 = Color3.fromRGB(40,40,42)
+            btn.BackgroundColor3 = Color3.fromRGB(60,60,64)
         end
     end)
     btn.MouseLeave:Connect(function()
         if ActiveTab ~= thisTabName then
+            btn.BackgroundColor3 = Color3.fromRGB(45,45,50)
             btn.BackgroundTransparency = 1
         end
     end)
@@ -1284,7 +1268,7 @@ function UI:SetActiveTab(name)
         local isActive = (tabKey == name)
 
         if isActive then
-            btn.BackgroundColor3      = Color3.fromRGB(255,0,80
+            btn.BackgroundColor3      = Color3.fromRGB(255,0,80)
             btn.BackgroundTransparency = 0
             sub.TextColor3            = Color3.fromRGB(255,255,255)
             icon.ImageColor3          = Color3.fromRGB(255,255,255)
@@ -1297,30 +1281,29 @@ function UI:SetActiveTab(name)
     end
 end
 
--- Replace UI:AddSidebarGroup implementation with this
+-- Sidebar groups + items
 function UI:AddSidebarGroup(name, expand)
     local h, items = AddGroupHeader(name)
     h.Parent = SideScroll
     items.Parent = SideScroll
 
-    -- recompute expanded height (in case items already present)
-    task.defer(function()
-        if not Groups[name] then return end
-        local total = 0
-        local listPadding = Groups[name].ItemsList and Groups[name].ItemsList.Padding.Offset or 0
-        for _,child in ipairs(Groups[name].ItemsHolder:GetChildren()) do
-            if child:IsA("GuiObject") and child ~= Groups[name].ItemsList then
-                total = total + child.AbsoluteSize.Y + listPadding
+    -- ถ้าผู้เรียกต้องการให้ขยายตอนสร้าง ให้เรียก _expandNow()
+    if expand and Groups[name] and Groups[name]._expandNow then
+        -- ให้เดเลย์สั้น ๆ เล็กน้อยก่อนขยาย เพื่อให้ AbsoluteSize ถูกคำนวณเรียบร้อย
+        task.defer(function()
+            -- safety: รีคัลคูลเล็กน้อย ถ้ามีปุ่มในกลุ่มแล้ว
+            local total = 0
+            local listPadding = Groups[name].ItemsList.Padding.Offset
+            for _,child in ipairs(Groups[name].ItemsHolder:GetChildren()) do
+                if child:IsA("GuiObject") and child ~= Groups[name].ItemsList then
+                    total = total + child.AbsoluteSize.Y + listPadding
+                end
             end
-        end
-        if total > 0 then total = total - listPadding end
-        if Groups[name]._setExpandedH then
+            if total > 0 then total = total - listPadding end
             Groups[name]._setExpandedH(total)
-        end
-        if expand and Groups[name]._expandNow then
             Groups[name]._expandNow()
-        end
-    end)
+        end)
+    end
 
     return Groups[name]
 end
