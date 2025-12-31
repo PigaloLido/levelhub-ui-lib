@@ -139,6 +139,7 @@ local function MakeToggle(parent, defaultState, callback)
     return ToggleBtn
 end
 
+-- Slider helper (used by AddSliderRow)
 local function MakeSlider(parent, startAlpha, onChange)
     local a = math.clamp(startAlpha or 0.5,0,1)
 
@@ -181,10 +182,9 @@ local function MakeSlider(parent, startAlpha, onChange)
         a = rel
         Fill.Size = UDim2.new(a,0,1,0)
         Handle.Position = UDim2.new(a,0,0.5,0)
-        local value = math.floor(a*20 + 0.5)
         if onChange then
             local ok,err = pcall(function()
-                onChange(value,a)
+                onChange(a)
             end)
             if not ok then warn("slider cb:",err) end
         end
@@ -207,13 +207,13 @@ local function MakeSlider(parent, startAlpha, onChange)
     end)
 
     return {
-        SetValue = function(v)
-            v = math.clamp(v,0,20)
-            local alpha = v/20
+        SetAlpha = function(alpha)
+            alpha = math.clamp(alpha, 0, 1)
             a = alpha
             Fill.Size = UDim2.new(a,0,1,0)
             Handle.Position = UDim2.new(a,0,0.5,0)
         end,
+        GetAlpha = function() return a end,
         Instance = Bar,
     }
 end
@@ -227,6 +227,8 @@ local Gui = New("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Global,
     Parent = parentGui,
 })
+-- Ensure this GUI renders above most other ScreenGuis
+pcall(function() Gui.DisplayOrder = 1000 end)
 
 local WindowState = {
     Minimized = false,
@@ -374,11 +376,6 @@ local function CollapseSidebar()
         Sidebar.Visible = false
 
         SidebarState.Animating = false
-
-        -- 🔴 ลบส่วนนี้ออก:
-        -- if BtnSidebar then
-        --     BtnSidebar.Visible = false
-        -- end
     end)
 end
 
@@ -408,11 +405,6 @@ local function ExpandSidebar()
     task.delay(0.22, function()
         SidebarState.CurrentWidth = targetWidth
         SidebarState.Animating = false
-
-        -- 🟢 ก็ไม่ต้องไปยุ่ง BtnSidebar ด้วย
-        -- if BtnSidebar then
-        --     BtnSidebar.Visible = true
-        -- end
     end)
 end
 
@@ -688,7 +680,54 @@ local function CreateSectionCard(parent, rowsOutTable)
         end
     end
 
-    function API:AddSliderRow(baseTitle, descTxt, defaultAlpha, onChange)
+    -- Improved AddSliderRow:
+    -- supports both old signature:
+    --   AddSliderRow(title, desc, defaultAlpha(0..1 or 0..20?), onChange)
+    -- and new signature:
+    --   AddSliderRow(title, desc, defaultValue, minValue, maxValue, unitText, onChange)
+    -- Examples:
+    --   section:AddSliderRow("Join Delay", "Seconds before join", 0.5, function(value,alpha) ... end)
+    --   section:AddSliderRow("Minimum Players", "Min players", 1, 1, 4, "studs", function(value,alpha) ... end)
+    function API:AddSliderRow(baseTitle, descTxt, defaultArg, minValue, maxValue, unit, onChange)
+        -- signature detection:
+        -- if minValue is a function -> old style: defaultArg is alpha (0..1) or integer 0..20, min=0,max=20
+        local oldStyle = false
+        if type(minValue) == "function" and maxValue == nil then
+            oldStyle = true
+            onChange = minValue
+            minValue = 0
+            maxValue = 20
+            -- if defaultArg <= 1 then assume alpha, else value in [0..20]
+            if type(defaultArg) ~= "number" then defaultArg = 0 end
+            local alpha
+            if defaultArg <= 1 then
+                alpha = math.clamp(defaultArg,0,1)
+            else
+                alpha = math.clamp(defaultArg/20,0,1)
+            end
+            defaultArg = math.floor(minValue + alpha * (maxValue - minValue) + 0.5)
+            unit = nil
+        else
+            -- new style: defaultArg = defaultValue, minValue/maxValue are numbers
+            if type(minValue) ~= "number" or type(maxValue) ~= "number" then
+                -- fallback to default old behaviour
+                minValue = 0
+                maxValue = 20
+            end
+            if type(defaultArg) ~= "number" then defaultArg = minValue end
+            if type(unit) == "function" and onChange == nil then
+                onChange = unit
+                unit = nil
+            end
+        end
+
+        local minV = minValue
+        local maxV = maxValue
+        if maxV < minV then minV, maxV = maxV, minV end
+
+        local value = math.clamp(math.floor(defaultArg + 0.5), minV, maxV)
+        local a = (maxV == minV) and 0 or ((value - minV) / (maxV - minV))
+
         local Row = New("Frame", {
             Parent = Card,
             BackgroundTransparency = 1,
@@ -709,7 +748,7 @@ local function CreateSectionCard(parent, rowsOutTable)
             BackgroundTransparency = 1,
             Size = UDim2.new(1,0,0,18),
             Font = Enum.Font.SourceSansBold,
-            Text = (baseTitle or "") .. " ( 0 )",
+            Text = (baseTitle or "") .. " (" .. tostring(value) .. (unit and (" " .. unit) or "") .. "/" .. tostring(maxV) .. (unit and (" " .. unit) or "") .. ")",
             TextColor3 = Color3.fromRGB(235,235,245),
             TextSize = 17,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -737,13 +776,19 @@ local function CreateSectionCard(parent, rowsOutTable)
             Size = UDim2.new(0,220,0,24),
             ZIndex = 7,
         })
-        local slider = MakeSlider(RightSide, defaultAlpha or 0.5, function(value,alpha)
-            TitleLbl.Text = (baseTitle or "") .. " ( "..tostring(value).." )"
+
+        local slider = MakeSlider(RightSide, a, function(alpha)
+            -- map alpha to value
+            local v = math.floor(minV + alpha * (maxV - minV) + 0.5)
+            value = math.clamp(v, minV, maxV)
+            TitleLbl.Text = (baseTitle or "") .. " (" .. tostring(value) .. (unit and (" " .. unit) or "") .. "/" .. tostring(maxV) .. (unit and (" " .. unit) or "") .. ")"
             if onChange then
-                pcall(onChange, value, alpha)
+                local ok,err = pcall(onChange, value, alpha)
+                if not ok then warn("slider cb:",err) end
             end
         end)
 
+        -- divider
         New("Frame", {
             Parent = Row,
             BackgroundColor3 = Color3.fromRGB(60,60,62),
@@ -758,9 +803,31 @@ local function CreateSectionCard(parent, rowsOutTable)
                 RowFrame = Row,
                 Title = TitleLbl,
                 Desc  = DescLbl,
-                Slider = slider,
+                Slider = {
+                    Set = function(v)
+                        v = math.clamp(math.floor(v + 0.5), minV, maxV)
+                        value = v
+                        local alpha = (maxV == minV) and 0 or ((v - minV) / (maxV - minV))
+                        slider.SetAlpha(alpha)
+                        TitleLbl.Text = (baseTitle or "") .. " (" .. tostring(value) .. (unit and (" " .. unit) or "") .. "/" .. tostring(maxV) .. (unit and (" " .. unit) or "") .. ")"
+                    end,
+                    Instance = slider.Instance,
+                },
             })
         end
+
+        -- return slider API for immediate use
+        return {
+            Set = function(v)
+                v = math.clamp(math.floor(v + 0.5), minV, maxV)
+                value = v
+                local alpha = (maxV == minV) and 0 or ((v - minV) / (maxV - minV))
+                slider.SetAlpha(alpha)
+                TitleLbl.Text = (baseTitle or "") .. " (" .. tostring(value) .. (unit and (" " .. unit) or "") .. "/" .. tostring(maxV) .. (unit and (" " .. unit) or "") .. ")"
+            end,
+            Get = function() return value end,
+            Instance = slider.Instance,
+        }
     end
 
     -- NEW: Dropdown row (options = table of strings)
@@ -904,9 +971,6 @@ local function CreateSectionCard(parent, rowsOutTable)
                         Size = UDim2.new(1,0,0,0)
                     }):Play()
                     Arrow.Image = ICON_ARROW_DOWN
-                    task.delay(0.18, function()
-                        -- nothing
-                    end)
                 end)
                 expandedH = expandedH + itemHeight + listPadding
             end
@@ -959,6 +1023,17 @@ local function CreateSectionCard(parent, rowsOutTable)
                 },
             })
         end
+
+        return {
+            Button = DropdownBtn,
+            ItemsHolder = ItemsHolder,
+            Options = options,
+            Rebuild = rebuildItems,
+            Set = function(idx)
+                idx = math.clamp(idx or 1, 1, #options)
+                DropdownBtn.Text = tostring(options[idx])
+            end,
+        }
     end
 
     return API
@@ -1599,6 +1674,256 @@ end
 -- Search API
 function UI:GetSearchBox()
     return SearchInput
+end
+
+-- Convenience: create a ready-made "Configuration" card (returns API to interact)
+-- Usage: local cfg = UI:CreateConfigCard(page.Frame)  -- or pass any parent frame
+-- cfg.UpdateList({"a","b"}), cfg.GetSelected(), cfg.SetAutoload("name"), etc.
+function UI:CreateConfigCard(parent)
+    parent = parent or self.ContentHolder
+    local Card = New("Frame", {
+        Parent = parent,
+        BackgroundColor3 = Color3.fromRGB(40,40,42),
+        BorderSizePixel = 0,
+        AutomaticSize = Enum.AutomaticSize.Y,
+        Size = UDim2.new(1,0,0,0),
+        ZIndex = 3,
+    })
+    Corner(Card,6)
+    Stroke(Card, Color3.fromRGB(60,60,62),1)
+
+    New("UIPadding", {
+        Parent = Card,
+        PaddingLeft = UDim.new(0,12),
+        PaddingRight = UDim.new(0,12),
+        PaddingTop = UDim.new(0,12),
+        PaddingBottom = UDim.new(0,12),
+    })
+
+    New("UIListLayout", {
+        Parent = Card,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0,6),
+    })
+
+    -- Title
+    New("TextLabel", {
+        Parent = Card,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.SourceSansBold,
+        Text = "Configuration",
+        TextColor3 = Color3.fromRGB(235,235,245),
+        TextSize = 18,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1,0,0,20),
+        ZIndex = 6,
+    })
+
+    -- Config name input
+    local NameBox = New("TextBox", {
+        Parent = Card,
+        BackgroundColor3 = Color3.fromRGB(50,50,52),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,0,28),
+        Text = "",
+        PlaceholderText = "Config name",
+        TextColor3 = Color3.fromRGB(235,235,245),
+        Font = Enum.Font.SourceSans,
+        TextSize = 14,
+        ClearTextOnFocus = false,
+        ZIndex = 6,
+    })
+    Corner(NameBox,4)
+    Stroke(NameBox, Color3.fromRGB(70,70,72),1)
+
+    -- Create button
+    local CreateBtn = New("TextButton", {
+        Parent = Card,
+        BackgroundColor3 = Color3.fromRGB(50,50,52),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,0,28),
+        Text = "Create config",
+        TextColor3 = Color3.fromRGB(200,200,200),
+        Font = Enum.Font.SourceSans,
+        TextSize = 14,
+        AutoButtonColor = false,
+        ZIndex = 6,
+    })
+    Corner(CreateBtn,4)
+    Hoverify(CreateBtn, true)
+
+    -- Config list label + dropdown holder
+    New("TextLabel", {
+        Parent = Card,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.SourceSans,
+        Text = "Config list",
+        TextColor3 = Color3.fromRGB(180,180,185),
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1,0,0,16),
+        ZIndex = 6,
+    })
+
+    -- dropdown for configs
+    local cfgDropdownBtn = New("TextButton", {
+        Parent = Card,
+        BackgroundColor3 = Color3.fromRGB(50,50,52),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,0,28),
+        Text = "---",
+        TextColor3 = Color3.fromRGB(235,235,245),
+        Font = Enum.Font.SourceSans,
+        TextSize = 14,
+        AutoButtonColor = false,
+        ZIndex = 6,
+    })
+    Corner(cfgDropdownBtn,4)
+    Hoverify(cfgDropdownBtn, true)
+
+    local cfgItemsHolder = New("Frame", {
+        Parent = Card,
+        BackgroundColor3 = Color3.fromRGB(36,36,38),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,0,0),
+        ClipsDescendants = true,
+        ZIndex = 6,
+    })
+    local cfgListLayout = New("UIListLayout", {
+        Parent = cfgItemsHolder,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0,2),
+    })
+
+    -- buttons: load/overwrite/delete/refresh/set autoload/reset autoload
+    local function makeBtn(text)
+        local b = New("TextButton", {
+            Parent = Card,
+            BackgroundColor3 = Color3.fromRGB(50,50,52),
+            BorderSizePixel = 0,
+            Size = UDim2.new(1,0,0,28),
+            Text = text,
+            TextColor3 = Color3.fromRGB(200,200,200),
+            Font = Enum.Font.SourceSans,
+            TextSize = 14,
+            AutoButtonColor = false,
+            ZIndex = 6,
+        })
+        Corner(b,4)
+        Hoverify(b, true)
+        return b
+    end
+
+    local LoadBtn = makeBtn("Load config")
+    local OverwriteBtn = makeBtn("Overwrite config")
+    local DeleteBtn = makeBtn("Delete config")
+    local RefreshBtn = makeBtn("Refresh list")
+    local SetAutoloadBtn = makeBtn("Set as autoload")
+    local ResetAutoloadBtn = makeBtn("Reset autoload")
+
+    local AutoloadLabel = New("TextLabel", {
+        Parent = Card,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.SourceSans,
+        Text = "Current autoload config: none",
+        TextColor3 = Color3.fromRGB(180,180,185),
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1,0,0,16),
+        ZIndex = 6,
+    })
+
+    -- internal state
+    local cfgOptions = {"---"}
+    local selectedIndex = 1
+    local opened = false
+    local expandedH = 0
+
+    local function rebuildCfgItems()
+        for _,c in ipairs(cfgItemsHolder:GetChildren()) do
+            if c ~= cfgListLayout then c:Destroy() end
+        end
+        expandedH = 0
+        for i,opt in ipairs(cfgOptions) do
+            local b = New("TextButton", {
+                Parent = cfgItemsHolder,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                Size = UDim2.new(1,0,0,28),
+                Text = tostring(opt),
+                TextColor3 = Color3.fromRGB(235,235,245),
+                Font = Enum.Font.SourceSans,
+                TextSize = 14,
+                AutoButtonColor = false,
+                ZIndex = 7,
+            })
+            b.MouseEnter:Connect(function()
+                b.BackgroundTransparency = 0
+                b.BackgroundColor3 = Color3.fromRGB(60,60,64)
+            end)
+            b.MouseLeave:Connect(function()
+                b.BackgroundTransparency = 1
+            end)
+            b.MouseButton1Click:Connect(function()
+                cfgDropdownBtn.Text = tostring(opt)
+                selectedIndex = i
+                opened = false
+                TweenService:Create(cfgItemsHolder, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    Size = UDim2.new(1,0,0,0)
+                }):Play()
+            end)
+            expandedH = expandedH + 28 + cfgListLayout.Padding.Offset
+        end
+        if expandedH > 0 then expandedH = expandedH - cfgListLayout.Padding.Offset end
+    end
+    rebuildCfgItems()
+
+    cfgDropdownBtn.MouseButton1Click:Connect(function()
+        if opened then
+            opened = false
+            TweenService:Create(cfgItemsHolder, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                Size = UDim2.new(1,0,0,0)
+            }):Play()
+        else
+            rebuildCfgItems()
+            opened = true
+            TweenService:Create(cfgItemsHolder, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                Size = UDim2.new(1,0,0,expandedH)
+            }):Play()
+        end
+    end)
+
+    -- return API for user to hook functions
+    local api = {
+        NameBox = NameBox,
+        CreateBtn = CreateBtn,
+        LoadBtn = LoadBtn,
+        OverwriteBtn = OverwriteBtn,
+        DeleteBtn = DeleteBtn,
+        RefreshBtn = RefreshBtn,
+        SetAutoloadBtn = SetAutoloadBtn,
+        ResetAutoloadBtn = ResetAutoloadBtn,
+        AutoloadLabel = AutoloadLabel,
+
+        UpdateList = function(list)
+            cfgOptions = list or {"---"}
+            if #cfgOptions == 0 then cfgOptions = {"---"} end
+            cfgDropdownBtn.Text = tostring(cfgOptions[1] or "---")
+            selectedIndex = 1
+            rebuildCfgItems()
+        end,
+        GetSelected = function() return selectedIndex, cfgOptions[selectedIndex] end,
+        SetSelected = function(idx)
+            idx = math.clamp(idx or 1, 1, #cfgOptions)
+            selectedIndex = idx
+            cfgDropdownBtn.Text = tostring(cfgOptions[idx])
+        end,
+        SetAutoload = function(name)
+            AutoloadLabel.Text = "Current autoload config: " .. (name or "none")
+        end,
+    }
+
+    return api
 end
 
 -- Init: make minimal visible state
