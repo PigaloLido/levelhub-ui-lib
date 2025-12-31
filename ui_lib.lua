@@ -2,6 +2,11 @@
 -- LevelHub UI - reusable UI library (no game-specific items)
 -- Return a UI table when executed: local UI = loadstring(... )()
 
+-- ป้องกันการรันซ้ำ: ถ้าโหลดซ้ำจะคืนค่า UI เดิมที่เก็บไว้ใน getgenv()
+if getgenv and getgenv().LevelHub_UI_Library then
+    return getgenv().LevelHub_UI_Library
+end
+
 --------------------------------------------------
 -- CONFIG ICONS (exported to UI)
 --------------------------------------------------
@@ -140,6 +145,7 @@ local function MakeToggle(parent, defaultState, callback)
 end
 
 -- Slider helper (used by AddSliderRow)
+-- Note: this function will use the shared input blocker via blockInput/unblockInput variables (declared later)
 local function MakeSlider(parent, startAlpha, onChange)
     local a = math.clamp(startAlpha or 0.5,0,1)
 
@@ -193,11 +199,15 @@ local function MakeSlider(parent, startAlpha, onChange)
     Handle.InputBegan:Connect(function(ip)
         if ip.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
+            -- เรียกตัวบล็อก input เพื่อไม่ให้การคลิกเล็ดลอดไปโดนเกม
+            if blockInput then pcall(blockInput) end
         end
     end)
     Handle.InputEnded:Connect(function(ip)
         if ip.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
+            -- ปลดบล็อก
+            if unblockInput then pcall(unblockInput) end
         end
     end)
     UIS.InputChanged:Connect(function(ip)
@@ -227,8 +237,34 @@ local Gui = New("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Global,
     Parent = parentGui,
 })
--- Ensure this GUI renders above most other ScreenGuis
+-- พยายามให้ GUI ของเราแสดงเหนือส่วนอื่น
 pcall(function() Gui.DisplayOrder = 1000 end)
+
+-- สร้างตัวบล็อก input แบบโปร่ง (ใช้ป้องกันการ "คลิกทะลุ" ไปที่โลกเกมเวลาใช้งาน UI)
+local InputBlocker = New("Frame", {
+    Parent = Gui,
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1,0,1,0),
+    Position = UDim2.new(0,0,0,0),
+    ZIndex = 9990, -- อยู่สูงกว่า Main แต่ต่ำกว่า DockButton(9999)
+    Visible = false,
+    Active = true, -- ต้อง Active=true เพื่อดัก input
+})
+-- ไม่ต้องมุมมน
+-- ตัวนับเพื่อรองรับ nested blocking (เช่น drag + dropdown พร้อมกัน)
+local blockCount = 0
+-- ไทย: เรียกเมื่อเริ่มต้องการบล็อก input ของเกม
+local function blockInput()
+    blockCount = blockCount + 1
+    InputBlocker.Visible = true
+end
+-- ไทย: เรียกเมื่อยกเลิกการบล็อก
+local function unblockInput()
+    blockCount = math.max(0, blockCount - 1)
+    if blockCount == 0 then
+        InputBlocker.Visible = false
+    end
+end
 
 local WindowState = {
     Minimized = false,
@@ -311,6 +347,8 @@ do
     HeaderBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
+            -- ไทย: เริ่มบล็อก input ของเกมขณะลากหน้าต่าง
+            blockInput()
             local mousePos = input.Position
             local mainAbs = Main.AbsolutePosition
             dragOffset = Vector2.new(mousePos.X - mainAbs.X, mousePos.Y - mainAbs.Y)
@@ -319,6 +357,8 @@ do
     HeaderBar.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
+            -- ไทย: ยกเลิกบล็อกเมื่อหยุดลาก
+            unblockInput()
         end
     end)
     UIS.InputChanged:Connect(function(input)
@@ -965,12 +1005,14 @@ local function CreateSectionCard(parent, rowsOutTable)
                     if onSelect then
                         pcall(onSelect, i, opt)
                     end
-                    -- collapse
+                    -- collapse และปลดบล็อก
                     opened = false
                     TweenService:Create(ItemsHolder, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
                         Size = UDim2.new(1,0,0,0)
                     }):Play()
                     Arrow.Image = ICON_ARROW_DOWN
+                    -- ยกเลิกบล็อก input
+                    unblockInput()
                 end)
                 expandedH = expandedH + itemHeight + listPadding
             end
@@ -987,6 +1029,7 @@ local function CreateSectionCard(parent, rowsOutTable)
                     Size = UDim2.new(1,0,0,0)
                 }):Play()
                 Arrow.Image = ICON_ARROW_DOWN
+                unblockInput()
             else
                 -- recalc expandedH in case sizes changed
                 rebuildItems()
@@ -995,6 +1038,8 @@ local function CreateSectionCard(parent, rowsOutTable)
                     Size = UDim2.new(1,0,0,expandedH)
                 }):Play()
                 Arrow.Image = ICON_ARROW_UP
+                -- บล็อก input ของเกมขณะ dropdown เปิด
+                blockInput()
             end
         end)
 
@@ -1871,6 +1916,8 @@ function UI:CreateConfigCard(parent)
                 TweenService:Create(cfgItemsHolder, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
                     Size = UDim2.new(1,0,0,0)
                 }):Play()
+                -- ปลดบล็อกหากยังบล็อกอยู่ (dropdown ของ config)
+                unblockInput()
             end)
             expandedH = expandedH + 28 + cfgListLayout.Padding.Offset
         end
@@ -1884,12 +1931,16 @@ function UI:CreateConfigCard(parent)
             TweenService:Create(cfgItemsHolder, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
                 Size = UDim2.new(1,0,0,0)
             }):Play()
+            -- ปลดบล็อก
+            unblockInput()
         else
             rebuildCfgItems()
             opened = true
             TweenService:Create(cfgItemsHolder, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
                 Size = UDim2.new(1,0,0,expandedH)
             }):Play()
+            -- บล็อก input ขณะ dropdown เปิด
+            blockInput()
         end
     end)
 
@@ -1928,6 +1979,9 @@ end
 
 -- Init: make minimal visible state
 applySidebarLayout(SidebarState.ExpandedWidth)
+
+-- เก็บ UI ไว้ใน getgenv() เพื่อป้องกันการรันซ้ำ
+pcall(function() if getgenv then getgenv().LevelHub_UI_Library = UI end end)
 
 -- Return UI object
 print("LevelHub UI library loaded ✅")
