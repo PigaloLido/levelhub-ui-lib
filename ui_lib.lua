@@ -763,6 +763,204 @@ local function CreateSectionCard(parent, rowsOutTable)
         end
     end
 
+    -- NEW: Dropdown row (options = table of strings)
+    function API:AddDropdownRow(baseTitle, descTxt, options, defaultIndex, onSelect)
+        options = options or {}
+        defaultIndex = math.clamp(defaultIndex or 1, 1, #options)
+        local itemHeight = 30
+        local listPadding = 2
+
+        local Row = New("Frame", {
+            Parent = Card,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1,0,0,44),
+            ZIndex = 5,
+        })
+
+        local Left = New("Frame", {
+            Parent = Row,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1,-220,1,0),
+            Position = UDim2.new(0,0,0,0),
+            ZIndex = 6,
+        })
+
+        local TitleLbl = New("TextLabel", {
+            Parent = Left,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1,0,0,18),
+            Font = Enum.Font.SourceSansBold,
+            Text = baseTitle or "",
+            TextColor3 = Color3.fromRGB(235,235,245),
+            TextSize = 17,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 7,
+        })
+
+        local DescLbl = New("TextLabel", {
+            Parent = Left,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1,0,0,16),
+            Position = UDim2.new(0,0,0,18),
+            Font = Enum.Font.SourceSans,
+            Text = descTxt or "",
+            TextColor3 = Color3.fromRGB(180,180,185),
+            TextSize = 14,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 7,
+        })
+
+        local RightSide = New("Frame", {
+            Parent = Row,
+            BackgroundTransparency = 1,
+            AnchorPoint = Vector2.new(1,0.5),
+            Position = UDim2.new(1,0,0.5,0),
+            Size = UDim2.new(0,220,0,24),
+            ZIndex = 7,
+        })
+
+        local DropdownBtn = New("TextButton", {
+            Parent = RightSide,
+            BackgroundColor3 = Color3.fromRGB(50,50,52),
+            BorderSizePixel = 0,
+            Size = UDim2.new(1,0,1,0),
+            Text = tostring(options[defaultIndex] or ""),
+            TextColor3 = Color3.fromRGB(235,235,245),
+            Font = Enum.Font.SourceSans,
+            TextSize = 14,
+            AutoButtonColor = false,
+            ZIndex = 8,
+        })
+        Corner(DropdownBtn,6)
+        Hoverify(DropdownBtn, true)
+
+        local Arrow = New("ImageLabel", {
+            Parent = DropdownBtn,
+            BackgroundTransparency = 1,
+            AnchorPoint = Vector2.new(1,0.5),
+            Position = UDim2.new(1,-8,0.5,0),
+            Size = UDim2.new(0,14,0,14),
+            Image = ICON_ARROW_DOWN,
+            ImageColor3 = Color3.fromRGB(200,200,210),
+            ZIndex = 9,
+        })
+
+        -- holder for options (inserted into Card so it flows under the Row)
+        local ItemsHolder = New("Frame", {
+            Parent = Card,
+            BackgroundColor3 = Color3.fromRGB(36,36,38),
+            BorderSizePixel = 0,
+            Size = UDim2.new(1,0,0,0),
+            ClipsDescendants = true,
+            ZIndex = 6,
+        })
+
+        local ItemsList = New("UIListLayout", {
+            Parent = ItemsHolder,
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding = UDim.new(0,listPadding),
+        })
+
+        local opened = false
+        local expandedH = 0
+
+        local function rebuildItems()
+            -- clear previous item GuiObjects (but keep ItemsList if present)
+            for _,c in ipairs(ItemsHolder:GetChildren()) do
+                if c ~= ItemsList then
+                    c:Destroy()
+                end
+            end
+            expandedH = 0
+            for i,opt in ipairs(options) do
+                local b = New("TextButton", {
+                    Parent = ItemsHolder,
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    Size = UDim2.new(1,0,0,itemHeight),
+                    Text = tostring(opt),
+                    TextColor3 = Color3.fromRGB(235,235,245),
+                    Font = Enum.Font.SourceSans,
+                    TextSize = 14,
+                    AutoButtonColor = false,
+                    ZIndex = 7,
+                })
+                b.MouseEnter:Connect(function()
+                    b.BackgroundTransparency = 0
+                    b.BackgroundColor3 = Color3.fromRGB(60,60,64)
+                end)
+                b.MouseLeave:Connect(function()
+                    b.BackgroundTransparency = 1
+                end)
+                b.MouseButton1Click:Connect(function()
+                    -- select
+                    DropdownBtn.Text = tostring(opt)
+                    if onSelect then
+                        pcall(onSelect, i, opt)
+                    end
+                    -- collapse
+                    opened = false
+                    TweenService:Create(ItemsHolder, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                        Size = UDim2.new(1,0,0,0)
+                    }):Play()
+                    Arrow.Image = ICON_ARROW_DOWN
+                    task.delay(0.18, function()
+                        -- nothing
+                    end)
+                end)
+                expandedH = expandedH + itemHeight + listPadding
+            end
+            if expandedH > 0 then expandedH = expandedH - listPadding end
+        end
+
+        -- initial build
+        rebuildItems()
+
+        DropdownBtn.MouseButton1Click:Connect(function()
+            if opened then
+                opened = false
+                TweenService:Create(ItemsHolder, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    Size = UDim2.new(1,0,0,0)
+                }):Play()
+                Arrow.Image = ICON_ARROW_DOWN
+            else
+                -- recalc expandedH in case sizes changed
+                rebuildItems()
+                opened = true
+                TweenService:Create(ItemsHolder, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    Size = UDim2.new(1,0,0,expandedH)
+                }):Play()
+                Arrow.Image = ICON_ARROW_UP
+            end
+        end)
+
+        New("Frame", {
+            Parent = Row,
+            BackgroundColor3 = Color3.fromRGB(60,60,62),
+            BorderSizePixel = 0,
+            Size = UDim2.new(1,0,0,1),
+            Position = UDim2.new(0,0,1,-1),
+            ZIndex = 6,
+        })
+
+        if rowsOutTable then
+            table.insert(rowsOutTable,{
+                RowFrame = Row,
+                Title = TitleLbl,
+                Desc  = DescLbl,
+                Dropdown = {
+                    Button = DropdownBtn,
+                    ItemsHolder = ItemsHolder,
+                    Options = options,
+                    Set = function(idx)
+                        idx = math.clamp(idx or 1, 1, #options)
+                        DropdownBtn.Text = tostring(options[idx])
+                    end,
+                },
+            })
+        end
+    end
+
     return API
 end
 
@@ -805,7 +1003,7 @@ local function CreatePage(name)
         Rows  = {},
     }
 
-    -- หากยังไม่มี ActiveTab (ยังไม่มีหน้าอื่นถูกสร้างก่อน) -> ตั้งหน้าปัจจุบันเป็น Active
+    -- หากยังไม่มี ActiveTab (ยังไม่มีหน้าอื่นถูกสร้างก่อน) -> ตั้งหน้าปัจจุบันเป็นหน้าแรก
     if not ActiveTab then
         ActiveTab = name
         Page.Visible = true
