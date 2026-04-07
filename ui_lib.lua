@@ -629,6 +629,319 @@ local function CreateSectionCard(parent, rowsOutTable)
 
     local API = {}
 
+
+-- เพิ่มในส่วน CreateSectionCard API
+function API:AddInputRow(iconTxt, titleTxt, descTxt, placeholder, callback)
+    local Row = New("Frame", {
+        Parent = Card,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,60),
+        ZIndex = 5,
+    })
+
+    local Left = New("Frame", {
+        Parent = Row,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,-220,1,0),
+        Position = UDim2.new(0,0,0,0),
+        ZIndex = 6,
+    })
+
+    New("TextLabel", {
+        Parent = Left,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0,20,0,20),
+        Position = UDim2.new(0,0,0,2),
+        Font = Enum.Font.SourceSansBold,
+        Text = iconTxt or "◆",
+        TextColor3 = Color3.fromRGB(255,255,255),
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 7,
+    })
+
+    local TxtBlock = New("Frame", {
+        Parent = Left,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0,24,0,0),
+        Size = UDim2.new(1,-24,1,0),
+        ZIndex = 7,
+    })
+
+    local TitleLbl = New("TextLabel", {
+        Parent = TxtBlock,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,18),
+        Font = Enum.Font.SourceSansBold,
+        Text = titleTxt or "",
+        TextColor3 = Color3.fromRGB(235,235,245),
+        TextSize = 17,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 8,
+    })
+
+    local DescLbl = New("TextLabel", {
+        Parent = TxtBlock,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,16),
+        Position = UDim2.new(0,0,0,18),
+        Font = Enum.Font.SourceSans,
+        Text = descTxt or "",
+        TextColor3 = Color3.fromRGB(180,180,185),
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 8,
+    })
+
+    local RightSide = New("Frame", {
+        Parent = Row,
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(1,0.5),
+        Position = UDim2.new(1,0,0.5,0),
+        Size = UDim2.new(0,220,0,40),
+        ZIndex = 7,
+    })
+
+    local InputBox = New("TextBox", {
+        Parent = RightSide,
+        BackgroundColor3 = Color3.fromRGB(50,50,52),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,0,28),
+        Text = "",
+        PlaceholderText = placeholder or "Enter text...",
+        TextColor3 = Color3.fromRGB(235,235,245),
+        PlaceholderColor3 = Color3.fromRGB(180,180,185),
+        Font = Enum.Font.SourceSans,
+        TextSize = 14,
+        ClearTextOnFocus = false,
+        ZIndex = 8,
+    })
+    Corner(InputBox,4)
+    Stroke(InputBox, Color3.fromRGB(70,70,72),1)
+
+    InputBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if callback then
+            pcall(callback, InputBox.Text)
+        end
+    end)
+
+    New("Frame", {
+        Parent = Row,
+        BackgroundColor3 = Color3.fromRGB(60,60,62),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,0,1),
+        Position = UDim2.new(0,0,1,-1),
+        ZIndex = 6,
+    })
+
+    if rowsOutTable then
+        table.insert(rowsOutTable,{
+            RowFrame = Row,
+            Title = TitleLbl,
+            Desc  = DescLbl,
+            Input = InputBox,
+        })
+    end
+
+    return InputBox
+end
+
+
+function API:AddButtonRow(iconTxt, titleTxt, descTxt, buttonText, callback)
+    local Row = New("Frame", {
+        Parent = Card,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,44),
+        ZIndex = 5,
+    })
+
+    local Left = New("Frame", {
+        Parent = Row,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,-220,1,0),
+        Position = UDim2.new(0,0,0,0),
+        ZIndex = 6,
+    })
+
+    New("TextLabel", {
+        Parent = Left,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0,20,0,20),
+        Position = UDim2.new(0,0,0,2),
+        Font = Enum.Font.SourceSansBold,
+        Text = iconTxt or "◆",
+        TextColor3 = Color3.fromRGB(255,255,255),
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 7,
+    })
+
+    local TxtBlock = New("Frame", {
+        Parent = Left,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0,24,0,0),
+        Size = UDim2.new(1,-24,1,0),
+        ZIndex = 7,
+    })
+
+    local TitleLbl = New("TextLabel", {
+        Parent = TxtBlock,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,18),
+        Font = Enum.Font.SourceSansBold,
+        Text = titleTxt or "",
+        TextColor3 = Color3.fromRGB(235,235,245),
+        TextSize = 17,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 8,
+    })
+
+    local DescLbl = New("TextLabel", {
+        Parent = TxtBlock,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,16),
+        Position = UDim2.new(0,0,0,18),
+        Font = Enum.Font.SourceSans,
+        Text = descTxt or "",
+        TextColor3 = Color3.fromRGB(180,180,185),
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 8,
+    })
+
+    local RightSide = New("Frame", {
+        Parent = Row,
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(1,0.5),
+        Position = UDim2.new(1,0,0.5,0),
+        Size = UDim2.new(0,220,0,24),
+        ZIndex = 7,
+    })
+
+    local Button = New("TextButton", {
+        Parent = RightSide,
+        BackgroundColor3 = Color3.fromRGB(50,50,52),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,1,0),
+        Text = buttonText or "Click",
+        TextColor3 = Color3.fromRGB(235,235,245),
+        Font = Enum.Font.SourceSans,
+        TextSize = 14,
+        AutoButtonColor = false,
+        ZIndex = 8,
+    })
+    Corner(Button,4)
+    Hoverify(Button, true)
+
+    Button.MouseButton1Click:Connect(function()
+        if callback then
+            pcall(callback)
+        end
+    end)
+
+    New("Frame", {
+        Parent = Row,
+        BackgroundColor3 = Color3.fromRGB(60,60,62),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,0,1),
+        Position = UDim2.new(0,0,1,-1),
+        ZIndex = 6,
+    })
+
+    if rowsOutTable then
+        table.insert(rowsOutTable,{
+            RowFrame = Row,
+            Title = TitleLbl,
+            Desc  = DescLbl,
+            Button = Button,
+        })
+    end
+
+    return Button
+end
+
+function API:AddLabelRow(iconTxt, titleTxt, descTxt)
+    local Row = New("Frame", {
+        Parent = Card,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,44),
+        ZIndex = 5,
+    })
+
+    local Left = New("Frame", {
+        Parent = Row,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,1,0),
+        Position = UDim2.new(0,0,0,0),
+        ZIndex = 6,
+    })
+
+    New("TextLabel", {
+        Parent = Left,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0,20,0,20),
+        Position = UDim2.new(0,0,0,2),
+        Font = Enum.Font.SourceSansBold,
+        Text = iconTxt or "◆",
+        TextColor3 = Color3.fromRGB(255,255,255),
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 7,
+    })
+
+    local TxtBlock = New("Frame", {
+        Parent = Left,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0,24,0,0),
+        Size = UDim2.new(1,-24,1,0),
+        ZIndex = 7,
+    })
+
+    local TitleLbl = New("TextLabel", {
+        Parent = TxtBlock,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,18),
+        Font = Enum.Font.SourceSansBold,
+        Text = titleTxt or "",
+        TextColor3 = Color3.fromRGB(235,235,245),
+        TextSize = 17,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 8,
+    })
+
+    local DescLbl = New("TextLabel", {
+        Parent = TxtBlock,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,0,0,16),
+        Position = UDim2.new(0,0,0,18),
+        Font = Enum.Font.SourceSans,
+        Text = descTxt or "",
+        TextColor3 = Color3.fromRGB(180,180,185),
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 8,
+    })
+
+    New("Frame", {
+        Parent = Row,
+        BackgroundColor3 = Color3.fromRGB(60,60,62),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1,0,0,1),
+        Position = UDim2.new(0,0,1,-1),
+        ZIndex = 6,
+    })
+
+    if rowsOutTable then
+        table.insert(rowsOutTable,{
+            RowFrame = Row,
+            Title = TitleLbl,
+            Desc  = DescLbl,
+        })
+    end
+
+    return TitleLbl
+end
+    
     function API:AddToggleRow(iconTxt, titleTxt, descTxt, defaultState, callback)
         local Row = New("Frame", {
             Parent = Card,
@@ -719,6 +1032,11 @@ local function CreateSectionCard(parent, rowsOutTable)
             })
         end
     end
+
+
+
+
+    
 
     -- Improved AddSliderRow:
     -- supports both old signature:
